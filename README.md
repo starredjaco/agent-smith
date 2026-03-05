@@ -20,6 +20,92 @@ Claude decides which tools to run, in what order, and when to stop. Hard limits 
 
 ---
 
+## Architecture
+
+```mermaid
+flowchart TD
+    User(["User\n(/pentester slash command)"])
+
+    subgraph ClaudeCode["Claude Code (AI Orchestrator)"]
+        Claude["Claude LLM\n(plans, decides, reasons)"]
+    end
+
+    subgraph MCP["MCP Server (mcp_server.py)"]
+        MCPTools["Tool Registrations\n@mcp.tool()"]
+        Session["scan_session.py\n(scope · depth · hard limits)"]
+        Cost["cost_tracker.py\n(token & USD tracking)"]
+        Logger["logger.py\n(structured session log)"]
+    end
+
+    subgraph LightweightDocker["Lightweight Docker Tools (ephemeral, --rm)"]
+        nmap["nmap\ninstrumentisto/nmap"]
+        naabu["naabu\nprojectdiscovery/naabu"]
+        httpx["httpx\nprojectdiscovery/httpx"]
+        nuclei["nuclei\nprojectdiscovery/nuclei"]
+        ffuf["ffuf\nghcr.io/ffuf/ffuf"]
+        subfinder["subfinder\nprojectdiscovery/subfinder"]
+        semgrep["semgrep\nsemgrep/semgrep"]
+        trufflehog["trufflehog\ntrufflesecurity/trufflehog"]
+    end
+
+    subgraph KaliContainer["Kali Container (persistent)"]
+        KaliMCP["kali-mcp HTTP API\n(port 5001)"]
+        KaliTools["nikto · sqlmap · gobuster\ntestssl · hydra · enum4linux-ng\ntheHarvester · amass · …"]
+    end
+
+    subgraph Outputs["Session Outputs"]
+        FindingsJSON["findings.json\n(vulns + diagrams)"]
+        SessionJSON["session.json\n(target · scope · status)"]
+        CostJSON["session_cost.json\n(per-tool costs)"]
+        Logs["logs/session_*.log"]
+        POCs["pocs/*.http\n(Burp Repeater files)"]
+    end
+
+    subgraph Dashboard["Live Dashboard"]
+        DashServer["dashboard.py\n(python -m http.server)"]
+        DashHTML["dashboard.html\n(auto-refresh, Mermaid diagrams)"]
+    end
+
+    Target(["Target\n(URL · IP · codebase)"])
+
+    User -->|"runs /pentester"| Claude
+    Claude -->|"MCP tool calls"| MCPTools
+    MCPTools --> Session
+    MCPTools --> Cost
+    MCPTools --> Logger
+    MCPTools -->|"docker_runner.py"| LightweightDocker
+    MCPTools -->|"kali_runner.py"| KaliMCP
+    KaliMCP --> KaliTools
+    LightweightDocker -->|"scan"| Target
+    KaliTools -->|"scan"| Target
+    MCPTools -->|"report_finding / report_diagram"| FindingsJSON
+    MCPTools -->|"save_poc"| POCs
+    Session --> SessionJSON
+    Cost --> CostJSON
+    Logger --> Logs
+    FindingsJSON --> DashHTML
+    DashServer --> DashHTML
+    Claude -->|"start_dashboard"| DashServer
+    DashHTML -->|"http://localhost:8080"| User
+```
+
+### Component breakdown
+
+| Component | File(s) | Role |
+|-----------|---------|------|
+| **Claude LLM** | — | AI orchestrator: plans the attack sequence, interprets results, decides what to run next, writes findings |
+| **MCP Server** | `mcp_server.py` | Thin `@mcp.tool()` wrappers that expose every capability to Claude as callable tools over the Model Context Protocol |
+| **Scan Session** | `scan_session.py` | Tracks target scope, depth preset, and enforces hard limits (max cost / time / calls); returns a stop signal when any limit is hit |
+| **Cost Tracker** | `cost_tracker.py` | Estimates token usage and USD cost per tool call; writes `session_cost.json` |
+| **Logger** | `logger.py` | Writes a structured JSONL log of every tool invocation, result, and Claude reasoning note to `logs/` |
+| **Docker Runner** | `tools/docker_runner.py` | `async docker run --rm` wrapper; streams stdout/stderr back to the MCP server |
+| **Lightweight tools** | `tools/nmap.py` … | One file per tool — builds the CLI args and calls docker_runner; each runs in its own ephemeral container |
+| **Kali Runner** | `tools/kali_runner.py` | Manages a single persistent `pentest-agent/kali-mcp` container; routes commands to its HTTP API on port 5001 to avoid per-command container startup overhead |
+| **Findings store** | `tools/findings.py` | Reads/writes `findings.json`; holds confirmed vulnerabilities and Mermaid topology diagrams |
+| **Dashboard** | `tools/dashboard.py`, `dashboard.html` | Serves `dashboard.html` via a local HTTP server; the page auto-refreshes and renders findings, diagrams, cost gauges, and scan progress |
+
+---
+
 ## Requirements
 
 | Dependency | Install |
