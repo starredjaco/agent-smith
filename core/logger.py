@@ -23,7 +23,8 @@ from pathlib import Path
 # Setup — one log file per process
 # ---------------------------------------------------------------------------
 
-_LOG_DIR = Path(__file__).parent / "logs"
+_REPO_ROOT = Path(__file__).parent.parent
+_LOG_DIR = _REPO_ROOT / "logs"
 _LOG_DIR.mkdir(exist_ok=True)
 
 _session_ts = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H-%M-%S")

@@ -57,23 +57,25 @@ mcp["pentest-agent"] = {
     "timeout": 30000,
 }
 
-# Add opencode.md to global instructions (avoid duplicates)
+# Add CLAUDE.md to global instructions (avoid duplicates)
 instructions = data.setdefault("instructions", [])
-instructions_entry = str(repo_dir / "opencode.md")
+instructions_entry = str(repo_dir / "CLAUDE.md")
 if instructions_entry not in instructions:
     instructions.append(instructions_entry)
 
 config_path.write_text(json.dumps(data, indent=2) + "\n")
 PYEOF
 ok "MCP server registered in $OPENCODE_CONFIG"
-ok "opencode.md added to global instructions"
+ok "CLAUDE.md added to global instructions"
 
-# ── Install /pentester slash command ──────────────────────────────────────────
+# ── Install slash commands ────────────────────────────────────────────────────
 echo ""
-echo "Installing /pentester slash command..."
+echo "Installing slash commands..."
 mkdir -p "$OPENCODE_COMMANDS_DIR"
-cp "$REPO_DIR/commands/pentester.md" "$OPENCODE_COMMANDS_DIR/pentester.md"
-ok "/pentester command available in all opencode sessions"
+cp "$REPO_DIR/skills/pentester.md"    "$OPENCODE_COMMANDS_DIR/pentester.md"
+cp "$REPO_DIR/skills/analyze-cve.md"  "$OPENCODE_COMMANDS_DIR/analyze-cve.md"
+cp "$REPO_DIR/skills/threat-model.md" "$OPENCODE_COMMANDS_DIR/threat-model.md"
+ok "/pentester, /analyze-cve, /threat-model commands available in all opencode sessions"
 
 # ── Next steps ────────────────────────────────────────────────────────────────
 echo ""
@@ -89,6 +91,8 @@ echo ""
 echo "  2. Build the Kali image (optional, ~10 min — required for kali_exec):"
 echo "     docker build -t pentest-agent/kali-mcp $REPO_DIR/tools/kali/"
 echo ""
-echo "  Usage:  /pentester scan https://target.com"
-echo "          /pentester check my local codebase at /path/to/code"
+echo "  Available commands:"
+echo "    /pentester scan https://target.com       — full pentest"
+echo "    /analyze-cve lodash 4.17.20 CVE-...      — CVE exploitability analysis"
+echo "    /threat-model                             — PASTA threat model"
 echo ""

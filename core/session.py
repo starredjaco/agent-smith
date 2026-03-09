@@ -62,7 +62,8 @@ PRESETS: dict[str, dict] = {
     },
 }
 
-_SESSION_FILE = Path(__file__).parent / "session.json"
+_REPO_ROOT = Path(__file__).parent.parent
+_SESSION_FILE = _REPO_ROOT / "session.json"
 
 # ── In-memory state ───────────────────────────────────────────────────────────
 

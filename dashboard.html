@@ -389,14 +389,26 @@
       card.dataset.diagId = d.id;
 
       const ts = new Date(d.timestamp).toLocaleTimeString();
-      card.innerHTML = `
-        <h3>${esc(d.title)}</h3>
-        <span class="ts">${ts}</span>
-        <div class="mermaid">${d.mermaid}</div>`;
+      const mermaidEl = document.createElement('div');
+      mermaidEl.className = 'mermaid';
+      mermaidEl.textContent = d.mermaid;   // textContent avoids HTML-escaping issues
 
+      card.innerHTML = `<h3>${esc(d.title)}</h3><span class="ts">${ts}</span>`;
+      card.appendChild(mermaidEl);
       wrap.appendChild(card);
-      // Render this card's mermaid block
-      await mermaid.run({ nodes: [card.querySelector('.mermaid')] });
+
+      try {
+        await mermaid.run({ nodes: [mermaidEl] });
+      } catch (err) {
+        // Render failed — show the raw source so the diagram isn't silently lost
+        mermaidEl.innerHTML = `
+          <div style="color:#ff4d4f;font-size:.8rem;margin-bottom:.5rem">
+            ⚠ Mermaid render error: ${esc(String(err?.message || err))}
+          </div>
+          <pre style="background:#010409;color:#7ee787;padding:.6rem;border-radius:4px;
+                      font-size:.75rem;white-space:pre-wrap;word-break:break-all;
+                      border:1px solid #21262d;max-height:400px;overflow-y:auto">${esc(d.mermaid)}</pre>`;
+      }
     }
   }
 

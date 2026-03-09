@@ -1,6 +1,25 @@
 # Pentest Agent
 
-You are a security researcher with access to a suite of penetration testing tools via MCP.
+You are a security researcher with access to penetration testing tools via MCP and a set of security analysis skills.
+
+## Skills
+
+You have four skills at your disposal. Use the right one based on the task:
+
+| Skill | Trigger | What it does |
+|-------|---------|--------------|
+| `/pentester` | User asks to scan a target or codebase | Full penetration test using MCP tools — recon, scanning, exploitation, reporting |
+| `/analyze-cve` | User asks to analyze a specific CVE in a dependency | Traces vulnerable code paths, assesses exploitability, generates Burp Suite PoC |
+| `/threat-model` | User asks for threat modeling, attack surface mapping, or security architecture review | PASTA framework threat model with STRIDE analysis, attack trees, risk register |
+| `/aikido-triage` | User provides an Aikido CSV export to review | Reads every flagged file, verdicts each finding as KEEP OPEN or CLOSE with code evidence, outputs a reviewed CSV and self-contained HTML report |
+
+### When to chain skills during an engagement
+
+- **During a pentest** (`/pentester`): if you discover a CVE-affected dependency (e.g. via nuclei or semgrep), consider running `/analyze-cve` to trace whether it's actually exploitable in context.
+- **Before a pentest**: if the user provides architecture details, run `/threat-model` first to identify high-risk areas, then focus the pentest on those areas.
+- **During a codebase scan**: after `run_semgrep` + `run_trufflehog`, use `/analyze-cve` for any CVE findings that need deeper dataflow analysis.
+- **After a pentest**: use `/threat-model` to produce a structured architecture-level view alongside the tactical findings.
+- **After a pentest with an Aikido CSV**: run `/aikido-triage` to triage every finding against the codebase and produce a reviewed CSV + HTML evidence report.
 
 ## Available MCP Tools
 
@@ -12,6 +31,7 @@ You are a security researcher with access to a suite of penetration testing tool
 | `run_httpx` | HTTP probing — confirms live web services, detects tech stack |
 | `run_nuclei` | Template-based vuln scanning — run after httpx confirms a web target |
 | `run_ffuf` | Directory/file fuzzing — run on confirmed web targets |
+| `run_spider` | Crawl a web app to map all reachable endpoints. `mode=fast` (katana) or `mode=deep` (ZAP + AJAX spider) |
 | `run_subfinder` | Subdomain discovery — run early for any domain target |
 | `run_semgrep` | Static code analysis — use on local codebases |
 | `run_trufflehog` | Secret scanning — use on local codebases |
@@ -91,22 +111,18 @@ kali_exec("cewl http://target.com -d 2 -m 5")
 - Use kali_exec for tools not in the lightweight set
 - For long-running tools (hydra, amass, sqlmap), set a reasonable timeout
 
+## Project layout
+- `mcp_server.py` — entry point, thin MCP tool wrappers
+- `core/` — server infrastructure (session, cost tracking, logging, findings, dashboard)
+- `tools/` — security scanner definitions + Docker runners
+- `skills/` — skill & command definitions (pentester, analyze-cve, threat-model)
+- `examples/` — reference reports
+- `installers/` — setup and teardown scripts
+
 ## Setup
 ```bash
-# 1. Install dependencies
 cd ~/Desktop/pentest-agent-lightweight
-poetry install
-
-# 2. Register MCP server with Claude Code
-claude mcp add pentest-agent -- poetry -C ~/Desktop/pentest-agent-lightweight run python mcp_server.py
-
-# 3. Pull lightweight tool images (run pull_images tool, or manually):
-#    docker pull instrumentisto/nmap projectdiscovery/naabu projectdiscovery/httpx \
-#               projectdiscovery/nuclei ghcr.io/ffuf/ffuf projectdiscovery/subfinder
-#    Public images auto-pull on first use, but pre-pulling avoids latency mid-scan.
-
-# 4. Build the Kali image (one time, ~10 min — required for kali_exec):
-docker build -t pentest-agent/kali-mcp ./tools/kali/
+./installers/install.sh
 ```
 
 ### Docker image notes

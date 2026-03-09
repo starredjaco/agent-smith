@@ -4,10 +4,13 @@ Pentest Agent MCP Server
 Thin registration layer — @mcp.tool() wrappers only.
 All logic lives in dedicated modules:
 
+  core/session.py       — scan scope, depth, hard limits
+  core/cost.py          — token & USD cost tracking
+  core/logger.py        — session activity log (logs/session_*.log)
+  core/findings.py      — findings.json persistence
+  core/dashboard.py     — local HTTP server for dashboard.html
   tools/kali_runner.py  — Kali container lifecycle + exec
-  tools/findings.py     — findings.json persistence
-  tools/dashboard.py    — local HTTP server for dashboard.html
-  logger.py             — session activity log (logs/session_*.log)
+  tools/docker_runner.py — ephemeral Docker container runner
 
 Register with Claude Code (run once):
   claude mcp add pentest-agent -- poetry -C ~/Desktop/pentest-agent-lightweight run python mcp_server.py
@@ -20,16 +23,25 @@ import os
 
 from mcp.server.fastmcp import FastMCP
 
-import cost_tracker
-import scan_session
-import logger as log
+from core import cost as cost_tracker
+from core import session as scan_session
+from core import logger as log
+from core import findings as findings_store
+from core import dashboard
 from tools import REGISTRY
 from tools.docker_runner import run_container
 from tools import kali_runner
-from tools import findings as findings_store
-from tools import dashboard
 
 mcp = FastMCP("pentest-agent")
+
+# ---------------------------------------------------------------------------
+# Session tool-call tracking (reset on start_scan)
+# ---------------------------------------------------------------------------
+
+_session_tools_called: set[str] = set()
+
+def _record(tool_name: str) -> None:
+    _session_tools_called.add(tool_name)
 
 # ---------------------------------------------------------------------------
 # Internal helpers
@@ -93,6 +105,7 @@ async def run_naabu(host: str, ports: str = "top-100", flags: str = "") -> str:
 @mcp.tool()
 async def run_httpx(url: str, flags: str = "") -> str:
     """HTTP probe — status, title, tech stack. Args: url, flags."""
+    _record("httpx")
     return await _run("httpx", url=url, flags=flags)
 
 
@@ -191,6 +204,57 @@ async def kali_exec(command: str, timeout: int = 120) -> str:
     result  = _clip(await kali_runner.exec_command(command, timeout=timeout), 15_000)
     cost_tracker.finish(call_id, result)
     log.tool_result("kali_exec", result)
+    return result
+
+
+@mcp.tool()
+async def run_spider(
+    url: str,
+    depth: int = 3,
+    mode: str = "fast",
+    flags: str = "",
+) -> str:
+    """Spider / crawl a web application to discover all reachable endpoints and pages.
+
+    mode:
+      fast  — katana (ProjectDiscovery crawler, already in kali). Best for APIs and
+              standard HTML apps. Very fast.
+      deep  — ZAP baseline spider (zaproxy). Includes AJAX/JS crawling and passive
+              scanning. Slower (~2–5 min) but finds JS-rendered routes.
+
+    depth: crawl depth (default 3).
+    flags: extra flags passed to the underlying tool.
+
+    Use this early in the scan, right after httpx, to map the full attack surface
+    before running nuclei or ffuf.
+    """
+    stop = scan_session.check_limits(cost_tracker.get_summary())
+    if stop:
+        return stop
+
+    log.tool_call("spider", {"url": url, "depth": depth, "mode": mode, "flags": flags})
+    call_id = cost_tracker.start("spider")
+
+    if mode == "deep":
+        # ZAP baseline: spiders + passive scan, outputs discovered URLs and findings
+        cmd = f"zaproxy -daemon -host 127.0.0.1 -port 8090 -config api.disablekey=true & sleep 10 && zap-cli --port 8090 spider {url} && zap-cli --port 8090 urls"
+        # Fall back to the packaged zap-baseline script if zap-cli isn't available
+        cmd = (
+            f"zap-baseline.py -t {url} -m {max(1, depth)} -I 2>&1 | "
+            f"grep -E '(PASS|WARN|FAIL|INFO|https?://)' | head -200"
+        )
+        if flags:
+            cmd = f"zap-baseline.py -t {url} -m {max(1, depth)} -I {flags} 2>&1 | head -200"
+    else:
+        # katana: fast headless crawler, output one URL per line
+        cmd = f"katana -u {url} -d {depth} -silent -no-color"
+        if flags:
+            cmd += f" {flags}"
+
+    result = _clip(await kali_runner.exec_command(cmd, timeout=360), 12_000)
+    _record("spider")
+    cost_tracker.finish(call_id, result)
+    log.tool_result("spider", result)
     return result
 
 
@@ -448,6 +512,7 @@ async def start_scan(
     scope        : list of in-scope hosts/domains (defaults to [target])
     out_of_scope : explicit exclusions Claude must not touch
     """
+    _session_tools_called.clear()
     cfg = scan_session.start(
         target=target, depth=depth,
         scope=scope, out_of_scope=out_of_scope,
@@ -488,7 +553,49 @@ async def complete_scan(notes: str = "") -> str:
       - all planned tools have run, OR
       - a limit was hit and you have written the final report.
     notes : brief summary of what was found / why stopping.
+
+    BLOCKED until:
+      1. At least one report_diagram has been called (application/network diagram).
+      2. Every high or critical finding has a matching PoC saved via save_poc.
     """
+    blockers: list[str] = []
+
+    data = findings_store._load()
+
+    # ── Check 1: diagram required ─────────────────────────────────────────────
+    if not data.get("diagrams"):
+        blockers.append(
+            "NO DIAGRAM: call report_diagram() with a Mermaid diagram of the application "
+            "architecture (components, endpoints, and features tested) before completing."
+        )
+
+    # ── Check 2: spider required when web targets were probed ────────────────
+    if "httpx" in _session_tools_called and "spider" not in _session_tools_called:
+        blockers.append(
+            "NO SPIDER: run_httpx confirmed web targets but run_spider was never called. "
+            "Run run_spider(url, mode='fast') to crawl the application before completing."
+        )
+
+    # ── Check 3: PoC required for every high/critical finding ────────────────
+    pocs_dir = os.path.join(os.path.dirname(__file__), "pocs")
+    poc_files = set(os.listdir(pocs_dir)) if os.path.isdir(pocs_dir) else set()
+    high_findings = [
+        f for f in data.get("findings", [])
+        if f.get("severity") in ("high", "critical")
+    ]
+    if high_findings and not poc_files:
+        titles = ", ".join(f['title'] for f in high_findings)
+        blockers.append(
+            f"NO POC FILES: {len(high_findings)} high/critical finding(s) have no Burp PoC. "
+            f"Call http_request(poc=True) + save_poc() for each: {titles}"
+        )
+
+    if blockers:
+        msg = "complete_scan BLOCKED — fix the following before calling complete_scan again:\n\n"
+        msg += "\n\n".join(f"  [{i+1}] {b}" for i, b in enumerate(blockers))
+        log.note(f"complete_scan blocked: {'; '.join(blockers)}")
+        return msg
+
     cfg = scan_session.complete(notes)
     log.note(f"Scan complete — {notes}")
     status = cfg.get("status", "complete")

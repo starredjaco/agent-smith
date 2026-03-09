@@ -17,6 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Layer 3: web scanning
 RUN apt-get update && apt-get install -y --no-install-recommends \
     nikto sqlmap whatweb wafw00f wapiti commix xsser davtest skipfish \
+    zaproxy \
     && rm -rf /var/lib/apt/lists/*
 
 # Layer 4: web fuzzing / discovery

@@ -36,7 +36,8 @@ MODEL             = "claude-sonnet-4-6"
 INPUT_PRICE_PER_M = 3.00    # USD per million input tokens
 CHARS_PER_TOKEN   = 4       # 1 token ≈ 4 ASCII chars for security tool output
 
-_COST_FILE = Path(__file__).parent / "session_cost.json"
+_REPO_ROOT = Path(__file__).parent.parent
+_COST_FILE = _REPO_ROOT / "session_cost.json"
 
 # ── In-memory session state ───────────────────────────────────────────────────
 _session_start = datetime.now(timezone.utc).isoformat()

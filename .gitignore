@@ -3,6 +3,7 @@ logs/
 findings.json
 session.json
 session_cost.json
+pocs/
 
 # ── Python ────────────────────────────────────────────────────────────────────
 __pycache__/

@@ -1,6 +1,6 @@
 # pentest-agent
 
-A lightweight penetration testing agent that uses **Claude as the orchestrator** and spins up Docker containers on demand for each security tool. Results stream into a live HTML dashboard. Every decision, tool call, and finding is logged.
+A penetration testing agent that uses **Claude as the orchestrator** and spins up Docker containers on demand for each security tool. Includes security analysis skills for CVE analysis and threat modeling. Results stream into a live HTML dashboard.
 
 ---
 
@@ -17,6 +17,24 @@ You (/pentester scan target.com)
 ```
 
 Claude decides which tools to run, in what order, and when to stop. Hard limits (cost / time / call count) are enforced server-side — when any limit is hit the tool returns a stop signal and Claude writes the final report.
+
+---
+
+## Skills
+
+Three skills cover different security workflows. They can be used independently or chained together during an engagement.
+
+| Skill | Command | Use case |
+|-------|---------|----------|
+| **Pentester** | `/pentester scan target.com` | Full penetration test — recon, scanning, exploitation, reporting |
+| **CVE Analysis** | `/analyze-cve lodash 4.17.20 CVE-2021-...` | Trace CVE exploitability in your codebase with dataflow analysis and Burp PoC |
+| **Threat Model** | `/threat-model` | PASTA framework threat model with STRIDE, attack trees, and risk register |
+
+### Chaining skills
+
+- During a pentest, if a CVE is found → run `/analyze-cve` to check if it's exploitable in context
+- Before a pentest → run `/threat-model` to identify high-risk areas to focus on
+- After a codebase scan → use `/analyze-cve` for findings that need deeper dataflow analysis
 
 ---
 
@@ -89,21 +107,6 @@ flowchart TD
     DashHTML -->|"http://localhost:8080"| User
 ```
 
-### Component breakdown
-
-| Component | File(s) | Role |
-|-----------|---------|------|
-| **Claude LLM** | — | AI orchestrator: plans the attack sequence, interprets results, decides what to run next, writes findings |
-| **MCP Server** | `mcp_server.py` | Thin `@mcp.tool()` wrappers that expose every capability to Claude as callable tools over the Model Context Protocol |
-| **Scan Session** | `scan_session.py` | Tracks target scope, depth preset, and enforces hard limits (max cost / time / calls); returns a stop signal when any limit is hit |
-| **Cost Tracker** | `cost_tracker.py` | Estimates token usage and USD cost per tool call; writes `session_cost.json` |
-| **Logger** | `logger.py` | Writes a structured JSONL log of every tool invocation, result, and Claude reasoning note to `logs/` |
-| **Docker Runner** | `tools/docker_runner.py` | `async docker run --rm` wrapper; streams stdout/stderr back to the MCP server |
-| **Lightweight tools** | `tools/nmap.py` … | One file per tool — builds the CLI args and calls docker_runner; each runs in its own ephemeral container |
-| **Kali Runner** | `tools/kali_runner.py` | Manages a single persistent `pentest-agent/kali-mcp` container; routes commands to its HTTP API on port 5001 to avoid per-command container startup overhead |
-| **Findings store** | `tools/findings.py` | Reads/writes `findings.json`; holds confirmed vulnerabilities and Mermaid topology diagrams |
-| **Dashboard** | `tools/dashboard.py`, `dashboard.html` | Serves `dashboard.html` via a local HTTP server; the page auto-refreshes and renders findings, diagrams, cost gauges, and scan progress |
-
 ---
 
 ## Requirements
@@ -124,18 +127,18 @@ cd pentest-agent-lightweight
 ./installers/install.sh
 ```
 
-`install.sh` does four things:
+`install.sh` does five things:
 1. Runs `poetry install` to set up Python dependencies
 2. Registers the MCP server with Claude Code (`--scope user` — applies to all sessions)
 3. Installs `/pentester` as a global slash command in `~/.claude/commands/`
-4. Adds `mcp__pentest-agent__*` to `~/.claude/settings.json` so tools run without approval prompts
+4. Installs `/analyze-cve` and `/threat-model` as skills in `~/.claude/skills/`
+5. Adds `mcp__pentest-agent__*` to `~/.claude/settings.json` so tools run without approval prompts
 
 ### Optional: pre-pull Docker images
 
 Saves time on the first scan (otherwise images are pulled on first use):
 
 ```bash
-# Lightweight tools — pulled from Docker Hub
 docker pull instrumentisto/nmap \
            projectdiscovery/naabu \
            projectdiscovery/httpx \
@@ -166,11 +169,11 @@ Open any Claude Code session and run:
 /pentester scan https://example.com
 /pentester scan 192.168.1.0/24 depth=recon
 /pentester check codebase at /path/to/project
+/analyze-cve pymupdf 1.26.4 https://nvd.nist.gov/vuln/detail/CVE-2024-12345
+/threat-model
 ```
 
-Claude will ask which depth/limits to use if you don't specify them, then start scanning.
-
-### Depth presets
+### Depth presets (pentester)
 
 | Depth | Tools | Default limits |
 |-------|-------|----------------|
@@ -198,18 +201,21 @@ Claude calls `start_dashboard` automatically. Open the URL it returns (default `
 ## Project structure
 
 ```
-mcp_server.py          — MCP tool registrations (thin wrappers only)
-scan_session.py        — scan scope, depth presets, hard limit enforcement
-cost_tracker.py        — per-tool token/cost estimation → session_cost.json
-logger.py              — structured session log → logs/session_*.log
+mcp_server.py          — MCP tool registrations (thin wrappers, entry point)
 dashboard.html         — self-refreshing findings dashboard (served by start_dashboard)
 
-tools/
+core/                  — server infrastructure
+  session.py           — scan scope, depth presets, hard limit enforcement
+  cost.py              — per-tool token/cost estimation → session_cost.json
+  logger.py            — structured session log → logs/session_*.log
+  findings.py          — findings.json read/write (findings + Mermaid diagrams)
+  dashboard.py         — python -m http.server wrapper
+
+tools/                 — security scanner definitions + Docker runners
+  __init__.py          — tool registry
   base.py              — Tool dataclass
   docker_runner.py     — async docker run --rm wrapper
   kali_runner.py       — persistent kali-mcp container lifecycle
-  findings.py          — findings.json read/write (findings + Mermaid diagrams)
-  dashboard.py         — python -m http.server wrapper
   nmap.py              — port scanner
   naabu.py             — fast port scanner
   httpx.py             — HTTP probe
@@ -221,12 +227,19 @@ tools/
   kali/
     Dockerfile         — Kali image (installs mcp-kali-server + all tools)
 
-commands/
-  pentester.md         — /pentester slash command definition (copied to ~/.claude/commands/ by install.sh)
+skills/                — skill & command definitions
+  pentester.md         — /pentester slash command (installed to ~/.claude/commands/)
+  analyze-cve.md       — /analyze-cve skill: CVE exploitability analysis with PoC generation
+  threat-model.md      — /threat-model skill: PASTA framework threat modeling
 
-installers/
-  install.sh           — one-command setup
-  uninstall.sh         — removes MCP registration and slash command
+examples/              — reference reports
+  threat-model-payflow-app.md    — example PASTA threat model report (markdown)
+  threat-model-payflow-app.html  — example PASTA threat model report (styled HTML)
+
+installers/            — setup scripts
+  install.sh           — one-command setup (MCP + skills + permissions)
+  install_opencode.sh  — opencode variant
+  uninstall.sh         — removes MCP registration, skills, and slash command
 ```
 
 ### Adding a new tool
@@ -234,6 +247,12 @@ installers/
 1. Create `tools/mytool.py` following the pattern of any existing tool file
 2. Add one import + one entry to `tools/__init__.py`
 3. Add a `@mcp.tool()` wrapper in `mcp_server.py`
+
+### Adding a new skill
+
+1. Create `skills/my-skill.md` with the skill definition (YAML frontmatter + instructions)
+2. Add a `cp` line in `installers/install.sh` to install it to `~/.claude/skills/`
+3. Reference it in `CLAUDE.md` so the agent knows when to use it
 
 ---
 
@@ -256,4 +275,4 @@ These are excluded from git (see `.gitignore`).
 ./installers/uninstall.sh
 ```
 
-Removes the MCP registration and the `/pentester` slash command. Docker images are left in place.
+Removes the MCP registration, `/pentester` command, and all installed skills. Docker images are left in place.

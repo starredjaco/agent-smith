@@ -41,8 +41,20 @@ ok "MCP server registered (scope: user)"
 echo ""
 echo "Installing /pentester slash command..."
 mkdir -p "$HOME/.claude/commands"
-cp "$REPO_DIR/commands/pentester.md" "$HOME/.claude/commands/pentester.md"
+cp "$REPO_DIR/skills/pentester.md" "$HOME/.claude/commands/pentester.md"
 ok "/pentester command available in all Claude sessions"
+
+# ── Install security analysis skills ─────────────────────────────────────────
+echo ""
+echo "Installing security analysis skills..."
+
+mkdir -p "$HOME/.claude/skills/analyze-cve"
+cp "$REPO_DIR/skills/analyze-cve.md" "$HOME/.claude/skills/analyze-cve/SKILL.md"
+ok "/analyze-cve skill installed"
+
+mkdir -p "$HOME/.claude/skills/threat-modeling"
+cp "$REPO_DIR/skills/threat-model.md" "$HOME/.claude/skills/threat-modeling/SKILL.md"
+ok "/threat-model skill installed"
 
 # ── Auto-approve pentest-agent MCP tools ──────────────────────────────────────
 echo ""
@@ -84,6 +96,8 @@ echo ""
 echo "  2. Build the Kali image (optional, ~10 min — required for kali_exec):"
 echo "     docker build -t pentest-agent/kali-mcp $REPO_DIR/tools/kali/"
 echo ""
-echo "  Usage:  /pentester scan https://target.com"
-echo "          /pentester check my local codebase at /path/to/code"
+echo "  Available commands:"
+echo "    /pentester scan https://target.com       — full pentest"
+echo "    /analyze-cve lodash 4.17.20 CVE-...      — CVE exploitability analysis"
+echo "    /threat-model                             — PASTA threat model"
 echo ""

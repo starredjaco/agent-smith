@@ -29,6 +29,16 @@ else
     warn "$CMD_FILE not found (skipping)"
 fi
 
+# ── Remove security analysis skills ──────────────────────────────────────────
+for skill_dir in "$HOME/.claude/skills/analyze-cve" "$HOME/.claude/skills/threat-modeling"; do
+    if [ -d "$skill_dir" ]; then
+        rm -rf "$skill_dir"
+        ok "Removed $(basename "$skill_dir") skill"
+    else
+        warn "$(basename "$skill_dir") skill not found (skipping)"
+    fi
+done
+
 # ── Stop Kali container if running ───────────────────────────────────────────
 if command -v docker >/dev/null 2>&1; then
     if docker inspect pentest-kali --format='{{.State.Running}}' 2>/dev/null | grep -q true; then
