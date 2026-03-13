@@ -49,15 +49,15 @@ echo ""
 echo "Installing security analysis skills..."
 
 mkdir -p "$HOME/.claude/skills/analyze-cve"
-cp "$REPO_DIR/skills/analyze-cve.md" "$HOME/.claude/skills/analyze-cve/SKILL.md"
+cp "$REPO_DIR/skills/analyze-cve/SKILL.md" "$HOME/.claude/skills/analyze-cve/SKILL.md"
 ok "/analyze-cve skill installed"
 
 mkdir -p "$HOME/.claude/skills/threat-modeling"
-cp "$REPO_DIR/skills/threat-model.md" "$HOME/.claude/skills/threat-modeling/SKILL.md"
+cp "$REPO_DIR/skills/threat-model/SKILL.md" "$HOME/.claude/skills/threat-modeling/SKILL.md"
 ok "/threat-model skill installed"
 
 mkdir -p "$HOME/.claude/skills/aikido-triage"
-cp "$REPO_DIR/skills/aikido-triage.md" "$HOME/.claude/skills/aikido-triage/SKILL.md"
+cp "$REPO_DIR/skills/aikido-triage/SKILL.md" "$HOME/.claude/skills/aikido-triage/SKILL.md"
 ok "/aikido-triage skill installed"
 
 mkdir -p "$HOME/.claude/skills/gh-export"
@@ -108,6 +108,6 @@ echo "  Available commands:"
 echo "    /pentester scan https://target.com       — full pentest"
 echo "    /analyze-cve lodash 4.17.20 CVE-...      — CVE exploitability analysis"
 echo "    /threat-model                             — PASTA threat model"
-echo "    /aikido-triage findings.csv /path/to/app — triage Aikido CSV + HTML report
-    /gh-export                               — export findings as GitHub issue blocks"
+echo "    /aikido-triage findings.csv /path/to/app — triage Aikido CSV + HTML report"
+echo "    /gh-export                               — export findings as GitHub issue blocks"
 echo ""

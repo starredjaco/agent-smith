@@ -126,7 +126,7 @@ cd pentest-agent-lightweight
 1. Runs `poetry install` to set up Python dependencies
 2. Registers the MCP server with Claude Code (`--scope user` — applies to all sessions)
 3. Installs `/pentester` as a global slash command in `~/.claude/commands/`
-4. Installs `/analyze-cve`, `/threat-model`, and `/aikido-triage` as skills in `~/.claude/skills/`
+4. Installs `/analyze-cve`, `/threat-model`, `/aikido-triage`, and `/gh-export` as skills in `~/.claude/skills/`
 5. Adds `mcp__pentest-agent__*` to `~/.claude/settings.json` so tools run without approval prompts
 
 ### Optional: pre-pull Docker images
@@ -259,6 +259,8 @@ skills/                — skill & command definitions
     SKILL.md           — /threat-model skill: PASTA framework threat modeling
   aikido-triage/
     SKILL.md           — /aikido-triage skill: Aikido CSV triage → reviewed CSV + HTML evidence report
+  gh-export/
+    SKILL.md           — /gh-export skill: format findings as copy-pasteable GitHub issue blocks
 
 examples/              — reference reports
   threat-model-payflow-app.md    — example PASTA threat model report (markdown)
