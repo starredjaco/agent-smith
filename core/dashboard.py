@@ -16,7 +16,7 @@ _REPO_DIR = Path(__file__).parent.parent
 _proc: "asyncio.subprocess.Process | None" = None
 
 
-async def serve(port: int = 8080) -> str:
+async def serve(port: int = 5000) -> str:
     """
     Start the HTTP server (idempotent — safe to call multiple times).
     Returns the full dashboard URL.

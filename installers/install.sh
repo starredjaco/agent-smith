@@ -60,6 +60,10 @@ mkdir -p "$HOME/.claude/skills/aikido-triage"
 cp "$REPO_DIR/skills/aikido-triage.md" "$HOME/.claude/skills/aikido-triage/SKILL.md"
 ok "/aikido-triage skill installed"
 
+mkdir -p "$HOME/.claude/skills/gh-export"
+cp "$REPO_DIR/skills/gh-export/SKILL.md" "$HOME/.claude/skills/gh-export/SKILL.md"
+ok "/gh-export skill installed"
+
 # ── Auto-approve pentest-agent MCP tools ──────────────────────────────────────
 echo ""
 echo "Configuring tool permissions (auto-approve pentest-agent tools)..."
@@ -104,5 +108,6 @@ echo "  Available commands:"
 echo "    /pentester scan https://target.com       — full pentest"
 echo "    /analyze-cve lodash 4.17.20 CVE-...      — CVE exploitability analysis"
 echo "    /threat-model                             — PASTA threat model"
-echo "    /aikido-triage findings.csv /path/to/app — triage Aikido CSV + HTML report"
+echo "    /aikido-triage findings.csv /path/to/app — triage Aikido CSV + HTML report
+    /gh-export                               — export findings as GitHub issue blocks"
 echo ""

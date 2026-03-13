@@ -4,7 +4,7 @@ You are a security researcher with access to penetration testing tools via MCP a
 
 ## Skills
 
-You have four skills at your disposal. Use the right one based on the task:
+You have five skills at your disposal. Use the right one based on the task:
 
 | Skill | Trigger | What it does |
 |-------|---------|--------------|
@@ -12,6 +12,7 @@ You have four skills at your disposal. Use the right one based on the task:
 | `/analyze-cve` | User asks to analyze a specific CVE in a dependency | Traces vulnerable code paths, assesses exploitability, generates Burp Suite PoC |
 | `/threat-model` | User asks for threat modeling, attack surface mapping, or security architecture review | PASTA framework threat model with STRIDE analysis, attack trees, risk register |
 | `/aikido-triage` | User provides an Aikido CSV export to review | Reads every flagged file, verdicts each finding as KEEP OPEN or CLOSE with code evidence, outputs a reviewed CSV and self-contained HTML report |
+| `/gh-export` | After any pentest or triage — user wants findings formatted for GitHub | Reads findings.json and outputs one copy-pasteable GitHub issue block per finding, following the AppSec reporting guide template |
 
 ### When to chain skills during an engagement
 
@@ -20,6 +21,7 @@ You have four skills at your disposal. Use the right one based on the task:
 - **During a codebase scan**: after `run_semgrep` + `run_trufflehog`, use `/analyze-cve` for any CVE findings that need deeper dataflow analysis.
 - **After a pentest**: use `/threat-model` to produce a structured architecture-level view alongside the tactical findings.
 - **After a pentest with an Aikido CSV**: run `/aikido-triage` to triage every finding against the codebase and produce a reviewed CSV + HTML evidence report.
+- **At the end of any pentest or triage**: run `/gh-export` to format all confirmed findings as copy-pasteable GitHub issue blocks.
 
 ## Available MCP Tools
 
@@ -40,7 +42,7 @@ You have four skills at your disposal. Use the right one based on the task:
 | `set_codebase_target` | Set local path for semgrep/trufflehog |
 | `report_finding` | Log a confirmed vulnerability (with evidence) to findings.json |
 | `report_diagram` | Save a Mermaid architecture/network diagram to findings.json |
-| `start_dashboard` | Serve dashboard.html at localhost:8080 |
+| `start_dashboard` | Serve dashboard.html at localhost:5000 |
 
 ### Kali tools (requires kali-mcp image)
 | Tool | Purpose |
@@ -50,7 +52,7 @@ You have four skills at your disposal. Use the right one based on the task:
 ## Workflow
 
 ### Remote target (URL or hostname)
-0. Call `start_dashboard` — opens live findings tracker at localhost:8080
+0. Call `start_dashboard` — opens live findings tracker at localhost:5000
 1. **Recon in parallel**: run `run_naabu` + `run_subfinder` simultaneously
 2. **Probe web services**: `run_httpx` on confirmed ports
 3. **Draw topology**: `report_diagram` with Mermaid diagram of discovered network/app architecture

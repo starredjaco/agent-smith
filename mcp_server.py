@@ -477,7 +477,7 @@ async def report_diagram(title: str, mermaid: str) -> str:
 
 
 @mcp.tool()
-async def start_dashboard(port: int = 8080) -> str:
+async def start_dashboard(port: int = 5000) -> str:
     """Serve dashboard.html at http://localhost:PORT/dashboard.html"""
     log.tool_call("start_dashboard", {"port": port})
     url = await dashboard.serve(port)

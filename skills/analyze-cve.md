@@ -149,7 +149,7 @@ If pentest-agent MCP tools are available (e.g. when chained from `/pentester`), 
 
 11. **Log confirmed vulnerabilities**
     - Call `report_finding` with the CVE ID, affected component, exploitability rating, and raw evidence (dataflow trace, code snippets)
-    - This makes the finding visible in the live dashboard at localhost:8080
+    - This makes the finding visible in the live dashboard at localhost:5000
 
 12. **Route PoC through Burp Suite**
     - Call `http_request(poc=True)` with the crafted exploit request — this lands it in Burp HTTP History

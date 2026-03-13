@@ -535,7 +535,7 @@ Fill in all `[CONTENT]`, `[MERMAID]`, table rows, and risk cards with actual ana
 
 If pentest-agent MCP tools are available (e.g. when chained from `/pentester`), push diagrams to the live dashboard:
 
-- Call `report_diagram` for the **Component Map** (Stage 3a) and the **Data Flow Diagram** (Stage 3b) — this makes them visible in the live dashboard at localhost:8080
+- Call `report_diagram` for the **Component Map** (Stage 3a) and the **Data Flow Diagram** (Stage 3b) — this makes them visible in the live dashboard at localhost:5000
 - Call `report_diagram` for each **Attack Tree** (Stage 6)
 - Optionally call `report_finding` for any High/Critical threats that are concrete enough to be actionable findings (e.g. a specific missing security control on a specific component)
 

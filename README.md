@@ -30,6 +30,7 @@ Four skills cover different security workflows. They can be used independently o
 | **CVE Analysis** | `/analyze-cve lodash 4.17.20 CVE-2021-...` | Trace CVE exploitability in your codebase with dataflow analysis and Burp PoC |
 | **Threat Model** | `/threat-model` | PASTA framework threat model with STRIDE, attack trees, and risk register |
 | **Aikido Triage** | `/aikido-triage findings.csv /path/to/codebase` | Triage every Aikido finding against the codebase — reads flagged files, verdicts each as KEEP OPEN or CLOSE with code evidence, outputs a reviewed CSV and self-contained HTML report |
+| **GH Export** | `/gh-export` | Format all confirmed findings from findings.json as copy-pasteable GitHub issue blocks, following the AppSec reporting guide template |
 
 ### Chaining skills
 
@@ -37,6 +38,7 @@ Four skills cover different security workflows. They can be used independently o
 - Before a pentest → run `/threat-model` to identify high-risk areas to focus on
 - After a codebase scan → use `/analyze-cve` for findings that need deeper dataflow analysis
 - After a pentest with an Aikido CSV export → run `/aikido-triage` to produce a client-ready evidence report
+- At the end of any pentest or triage → run `/gh-export` to get copy-pasteable GitHub issue blocks for every finding
 
 ---
 
@@ -106,7 +108,8 @@ flowchart TD
     FindingsJSON --> DashHTML
     DashServer --> DashHTML
     Claude -->|"start_dashboard"| DashServer
-    DashHTML -->|"http://localhost:8080"| User
+    DashHTML -->|"http://localhost:5000"| User
+    FindingsJSON -->|"aggregated findings → pick next scans"| Claude
 ```
 
 ---
@@ -192,7 +195,7 @@ Custom limits override the preset:
 
 ### Live dashboard
 
-Claude calls `start_dashboard` automatically. Open the URL it returns (default `http://localhost:8080/dashboard.html`) to see:
+Claude calls `start_dashboard` automatically. Open the URL it returns (default `http://localhost:5000/dashboard.html`) to see:
 
 - Findings table (color-coded by severity, expandable evidence)
 - Architecture / network diagrams (Mermaid)
