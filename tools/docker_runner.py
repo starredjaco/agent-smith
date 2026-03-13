@@ -12,13 +12,18 @@ async def run_container(
     timeout: int = DEFAULT_TIMEOUT,
     mount_path: str | None = None,
     extra_volumes: list[tuple[str, str]] | None = None,
+    env_vars: dict[str, str] | None = None,
 ) -> tuple[str, str, int]:
     """
     Run a Docker container and return (stdout, stderr, exit_code).
     Raises asyncio.TimeoutError if the container exceeds the timeout.
     extra_volumes: list of (host_path, container_path) tuples for additional -v mounts.
+    env_vars: environment variables to inject into the container via -e flags.
     """
     cmd = ["docker", "run", "--rm", "--network=host", "--tty"]
+
+    for key, val in (env_vars or {}).items():
+        cmd += ["-e", f"{key}={val}"]
 
     if mount_path:
         abs_path = os.path.abspath(mount_path)

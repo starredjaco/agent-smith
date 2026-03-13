@@ -74,6 +74,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     mcp-kali-server \
     && rm -rf /var/lib/apt/lists/*
 
+# AI red-teaming: Microsoft PyRIT + thin CLI runner
+# pyrit-runner wraps the PyRIT SDK for scripted multi-turn adversarial attacks.
+RUN pip3 install --no-cache-dir pyrit --break-system-packages
+COPY pyrit_runner.py /usr/local/bin/pyrit-runner
+RUN chmod +x /usr/local/bin/pyrit-runner
+
 # Decompress rockyou wordlist (needed by hydra, john, etc.)
 RUN gzip -d /usr/share/wordlists/rockyou.txt.gz 2>/dev/null || true
 

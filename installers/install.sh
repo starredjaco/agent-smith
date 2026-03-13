@@ -64,6 +64,49 @@ mkdir -p "$HOME/.claude/skills/gh-export"
 cp "$REPO_DIR/skills/gh-export/SKILL.md" "$HOME/.claude/skills/gh-export/SKILL.md"
 ok "/gh-export skill installed"
 
+# ── AI testing API keys (FuzzyAI + PyRIT) ────────────────────────────────────
+echo ""
+echo "AI testing tools (FuzzyAI + PyRIT) use LLM APIs for attacks and scoring."
+echo "Keys are stored in $REPO_DIR/.env (mode 600) and loaded automatically."
+echo "Press Enter to skip any key you don't need right now."
+echo ""
+
+ENV_FILE="$REPO_DIR/.env"
+touch "$ENV_FILE"
+chmod 600 "$ENV_FILE"
+
+_ask_key() {
+    local key="$1"
+    local desc="$2"
+    local existing
+    existing=$(grep -E "^${key}=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2-)
+    if [[ -n "$existing" ]]; then
+        printf "  %s already set. New value (Enter to keep): " "$key"
+    else
+        printf "  %s — %s\n  Value (Enter to skip): " "$key" "$desc"
+    fi
+    # Read silently so the key never echoes to the terminal
+    IFS= read -r -s value
+    echo ""
+    if [[ -n "$value" ]]; then
+        # Replace or append
+        if grep -qE "^${key}=" "$ENV_FILE" 2>/dev/null; then
+            sed -i.bak "s|^${key}=.*|${key}=${value}|" "$ENV_FILE" && rm -f "${ENV_FILE}.bak"
+        else
+            echo "${key}=${value}" >> "$ENV_FILE"
+        fi
+        ok "$key saved"
+    elif [[ -n "$existing" ]]; then
+        ok "$key unchanged"
+    else
+        warn "$key skipped"
+    fi
+}
+
+_ask_key "OPENAI_API_KEY"      "OpenAI key — FuzzyAI (openai provider) + PyRIT attacker/scorer"
+_ask_key "ANTHROPIC_API_KEY"   "Anthropic key — FuzzyAI (anthropic provider)"
+_ask_key "AZURE_OPENAI_API_KEY" "Azure OpenAI key — FuzzyAI (azure provider)"
+
 # ── Auto-approve pentest-agent MCP tools ──────────────────────────────────────
 echo ""
 echo "Configuring tool permissions (auto-approve pentest-agent tools)..."
@@ -99,10 +142,11 @@ echo "     In any Claude Code session, ask Claude to call the pull_images tool."
 echo "     Or manually:"
 echo "     docker pull instrumentisto/nmap projectdiscovery/naabu projectdiscovery/httpx \\"
 echo "                projectdiscovery/nuclei ghcr.io/ffuf/ffuf projectdiscovery/subfinder \\"
-echo "                semgrep/semgrep trufflesecurity/trufflehog"
+echo "                semgrep/semgrep trufflesecurity/trufflehog ghcr.io/cyberark/fuzzyai"
 echo ""
-echo "  2. Build the Kali image (optional, ~10 min — required for kali_exec):"
+echo "  2. Build the Kali image (~10 min — required for kali_exec + run_pyrit):"
 echo "     docker build -t pentest-agent/kali-mcp $REPO_DIR/tools/kali/"
+echo "     (PyRIT is installed inside the image; API keys are forwarded at run time)"
 echo ""
 echo "  Available commands:"
 echo "    /pentester scan https://target.com       — full pentest"

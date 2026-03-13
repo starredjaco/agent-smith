@@ -17,3 +17,5 @@ class Tool:
     max_output:      int  = 12_000   # chars clipped before returning to Claude
     # Extra volume mounts: list of (host_path, container_path) tuples
     extra_volumes:   list[tuple[str, str]] = field(default_factory=list)
+    # Host env vars to forward into the container (e.g. API keys)
+    forward_env:     list[str] = field(default_factory=list)

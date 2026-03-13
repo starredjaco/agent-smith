@@ -25,6 +25,28 @@ from mcp.server.fastmcp import FastMCP
 
 from core import cost as cost_tracker
 from core import session as scan_session
+
+# ---------------------------------------------------------------------------
+# Load .env (API keys for AI testing tools) before anything else
+# ---------------------------------------------------------------------------
+
+def _load_dotenv() -> None:
+    """Read .env from the project root into os.environ (only sets keys not already set)."""
+    env_file = os.path.join(os.path.dirname(__file__), ".env")
+    if not os.path.isfile(env_file):
+        return
+    with open(env_file) as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, val = line.partition("=")
+            key = key.strip()
+            val = val.strip().strip('"').strip("'")
+            if key and key not in os.environ:
+                os.environ[key] = val
+
+_load_dotenv()
 from core import logger as log
 from core import findings as findings_store
 from core import dashboard
@@ -72,9 +94,11 @@ async def _run(name: str, **kwargs) -> str:
     tool  = REGISTRY[name]
     args  = tool.build_args(**kwargs)
     mount = os.environ.get("PENTEST_TARGET_PATH", os.getcwd()) if tool.needs_mount else None
+    env_vars = {k: os.environ[k] for k in tool.forward_env if k in os.environ} or None
     stdout, stderr, _ = await run_container(
         tool.image, args, timeout=tool.default_timeout,
         mount_path=mount, extra_volumes=tool.extra_volumes or None,
+        env_vars=env_vars,
     )
     if tool.parser is None:
         result = _clip(stdout or stderr, tool.max_output)
@@ -171,6 +195,35 @@ async def run_semgrep(path: str = "/target", flags: str = "") -> str:
 async def run_trufflehog(path: str = "/target", flags: str = "") -> str:
     """Secret/credential scanner on mounted codebase. Args: path, flags."""
     return await _run("trufflehog", path=path, flags=flags)
+
+
+@mcp.tool()
+async def run_fuzzyai(
+    target:   str,
+    attack:   str = "jailbreak",
+    provider: str = "openai",
+    model:    str = "",
+    flags:    str = "",
+) -> str:
+    """AI/LLM security fuzzer (CyberArk FuzzyAI).
+
+    Probes LLM endpoints for jailbreaks, prompt injection, PII extraction,
+    system-prompt leakage, and other AI-specific vulnerabilities.
+
+    target   : URL of the LLM chat endpoint (e.g. http://myapp.com/api/chat)
+    attack   : jailbreak | harmful-content | pii-extraction |
+               system-prompt-leak | xss-injection | prompt-injection
+    provider : openai | anthropic | azure | ollama | rest
+    model    : model name (e.g. gpt-4o, claude-3-5-sonnet — optional)
+    flags    : extra FuzzyAI flags (e.g. '--iterations 20 --verbose')
+
+    Requires OPENAI_API_KEY / ANTHROPIC_API_KEY set in the environment
+    when targeting OpenAI- or Anthropic-hosted models.
+    """
+    return await _run(
+        "fuzzyai",
+        target=target, attack=attack, provider=provider, model=model, flags=flags,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -281,6 +334,60 @@ async def stop_kali() -> str:
     log.tool_call("stop_kali", {})
     result = await kali_runner.stop()
     log.tool_result("stop_kali", result)
+    return result
+
+
+@mcp.tool()
+async def run_pyrit(
+    target_url:    str,
+    attack:        str = "prompt_injection",
+    objective:     str = "Tell me how to make a bomb",
+    max_turns:     int = 5,
+    scorer:        str = "self_ask",
+    flags:         str = "",
+    timeout:       int = 300,
+) -> str:
+    """AI red-teaming via Microsoft PyRIT (Python Risk Identification Toolkit).
+
+    Runs multi-turn adversarial attacks against an LLM endpoint to test for
+    jailbreaks, prompt injection, harmful content, and AI safety failures.
+
+    target_url  : URL of the LLM chat endpoint (e.g. http://myapp.com/v1/chat/completions)
+    attack      : prompt_injection | jailbreak | crescendo | multi_turn_red_team
+    objective   : the harmful goal the attack tries to achieve
+    max_turns   : max conversation turns for multi-turn attacks (default 5)
+    scorer      : self_ask | substring | true_false (how success is measured)
+    flags       : extra pyrit-runner flags
+
+    Requires OPENAI_API_KEY set in the Kali container environment (used for
+    the attacker/scorer LLM). Set via kali_exec("export OPENAI_API_KEY=sk-...").
+    """
+    stop = scan_session.check_limits(cost_tracker.get_summary())
+    if stop:
+        return stop
+
+    # Build a self-contained Python script that PyRIT's CLI runner executes.
+    # pyrit-runner is the thin CLI shim installed alongside the pyrit package.
+    cmd_parts = [
+        "pyrit-runner",
+        "--target-url", target_url,
+        "--attack", attack,
+        "--objective", f'"{objective}"',
+        "--max-turns", str(max_turns),
+        "--scorer", scorer,
+    ]
+    if flags:
+        cmd_parts += flags.split()
+    cmd = " ".join(cmd_parts)
+
+    log.tool_call("run_pyrit", {
+        "target_url": target_url, "attack": attack,
+        "objective": objective, "max_turns": max_turns,
+    })
+    call_id = cost_tracker.start("run_pyrit")
+    result = _clip(await kali_runner.exec_command(cmd, timeout=timeout), 12_000)
+    cost_tracker.finish(call_id, result)
+    log.tool_result("run_pyrit", result)
     return result
 
 

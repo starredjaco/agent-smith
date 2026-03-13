@@ -11,6 +11,7 @@ To add a new tool:
 from __future__ import annotations
 
 from tools.ffuf       import TOOL as _ffuf
+from tools.fuzzyai    import TOOL as _fuzzyai
 from tools.httpx      import TOOL as _httpx
 from tools.naabu      import TOOL as _naabu
 from tools.nmap       import TOOL as _nmap
@@ -29,6 +30,7 @@ REGISTRY = {
     _subfinder.name:  _subfinder,   # subfinder  — subdomain discovery
     _semgrep.name:    _semgrep,     # semgrep    — static code analysis
     _trufflehog.name: _trufflehog,  # trufflehog — secret scanner
+    _fuzzyai.name:    _fuzzyai,     # fuzzyai    — AI/LLM security fuzzer
 }
 # fmt: on
 

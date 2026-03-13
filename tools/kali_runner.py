@@ -12,6 +12,7 @@ Used exclusively by mcp_server.py; not a Tool registry entry.
 from __future__ import annotations
 
 import asyncio
+import os
 
 KALI_IMAGE     = "pentest-agent/kali-mcp"
 KALI_CONTAINER = "pentest-kali"
@@ -68,6 +69,14 @@ async def ensure_running() -> tuple[bool, str]:
                 f"  docker build -t {KALI_IMAGE} ./tools/kali/"
             )
 
+        # Forward AI API keys from host environment into the container
+        _AI_ENV_KEYS = ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "AZURE_OPENAI_API_KEY")
+        env_flags: list[str] = []
+        for key in _AI_ENV_KEYS:
+            val = os.environ.get(key)
+            if val:
+                env_flags += ["-e", f"{key}={val}"]
+
         proc = await asyncio.create_subprocess_exec(
             "docker", "run", "-d",
             "--name", KALI_CONTAINER,
@@ -75,6 +84,7 @@ async def ensure_running() -> tuple[bool, str]:
             "--rm",
             "--cap-add=NET_RAW",
             "--cap-add=NET_ADMIN",
+            *env_flags,
             KALI_IMAGE,
             stdout=asyncio.subprocess.DEVNULL,
             stderr=asyncio.subprocess.PIPE,

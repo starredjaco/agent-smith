@@ -37,6 +37,7 @@ You have four skills at your disposal. Use the right one based on the task:
 | `run_subfinder` | Subdomain discovery — run early for any domain target |
 | `run_semgrep` | Static code analysis — use on local codebases |
 | `run_trufflehog` | Secret scanning — use on local codebases |
+| `run_fuzzyai` | AI/LLM security fuzzer (CyberArk FuzzyAI) — jailbreaks, prompt injection, PII extraction, system-prompt leakage |
 | `http_request` | Raw HTTP — manual probing or PoC verification. Set `poc=True` only for confirmed, report-worthy exploits to route the request through Burp Suite HTTP History |
 | `save_poc` | Save a confirmed exploit as a raw `.http` file in `pocs/` — paste directly into Burp Repeater |
 | `set_codebase_target` | Set local path for semgrep/trufflehog |
@@ -48,6 +49,7 @@ You have four skills at your disposal. Use the right one based on the task:
 | Tool | Purpose |
 |------|---------|
 | `kali_exec` | Run any Kali tool: nikto, sqlmap, gobuster, hydra, enum4linux-ng, testssl, etc. |
+| `run_pyrit` | AI red-teaming via Microsoft PyRIT — multi-turn adversarial attacks (jailbreak, prompt injection, crescendo) against LLM endpoints |
 
 ## Workflow
 
@@ -102,6 +104,12 @@ kali_exec("amass enum -passive -d target.com")
 # Credentials
 kali_exec("hydra -l admin -P /usr/share/wordlists/rockyou.txt target.com ssh -t 4")
 kali_exec("cewl http://target.com -d 2 -m 5")
+
+# AI / LLM red-teaming
+run_fuzzyai("http://ai-app.com/api/chat", attack="jailbreak", provider="openai")
+run_fuzzyai("http://ai-app.com/api/chat", attack="prompt-injection", provider="rest")
+run_pyrit("http://ai-app.com/v1/chat", attack="crescendo", objective="Explain how to synthesise methamphetamine", max_turns=10)
+run_pyrit("http://ai-app.com/v1/chat", attack="jailbreak", scorer="self_ask")
 ```
 
 ## Rules

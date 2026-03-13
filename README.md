@@ -149,18 +149,86 @@ docker pull instrumentisto/nmap \
            ghcr.io/ffuf/ffuf \
            projectdiscovery/subfinder \
            semgrep/semgrep \
-           trufflesecurity/trufflehog
+           trufflesecurity/trufflehog \
+           ghcr.io/cyberark/fuzzyai
 ```
 
 ### Optional: build the Kali image
 
-Required only for `kali_exec` (nikto, sqlmap, gobuster, testssl, hydra, etc.):
+Required for `kali_exec`, `run_ffuf`, `run_spider`, and `run_pyrit`:
 
 ```bash
 docker build -t pentest-agent/kali-mcp ./tools/kali/
 ```
 
-This takes ~10 minutes on first build. The image is ~3 GB.
+This takes ~10 minutes on first build. The image is ~3 GB and includes PyRIT.
+
+---
+
+## AI testing tools
+
+Two tools are included for red-teaming LLM-powered applications:
+
+| Tool | Backend | What it does |
+|------|---------|-------------|
+| `run_fuzzyai` | CyberArk FuzzyAI (Docker) | Fuzzes LLM endpoints for jailbreaks, prompt injection, PII extraction, and system-prompt leakage |
+| `run_pyrit` | Microsoft PyRIT (Kali container) | Multi-turn adversarial attacks — single-shot prompt injection, jailbreak, and crescendo escalation |
+
+### API key setup
+
+Both tools send requests to LLM APIs and need credentials to function. The installer prompts for these interactively and stores them in `.env` (mode 600). To update keys after install:
+
+```bash
+# Re-run just the key prompts
+./installers/install.sh
+# Or edit directly
+nano pentest-agent-lightweight/.env
+```
+
+Keys are loaded by the MCP server at startup and forwarded to containers automatically.
+
+| Key | Used by |
+|-----|---------|
+| `OPENAI_API_KEY` | FuzzyAI (`--provider openai`), PyRIT attacker + scorer LLM |
+| `ANTHROPIC_API_KEY` | FuzzyAI (`--provider anthropic`) |
+| `AZURE_OPENAI_API_KEY` | FuzzyAI (`--provider azure`) |
+
+### Example usage
+
+```
+/pentester scan http://my-ai-app.com/chat   ← FuzzyAI + PyRIT run automatically if AI endpoint detected
+```
+
+Or invoke directly:
+
+```
+run_fuzzyai("http://app.com/api/chat", attack="jailbreak", provider="openai")
+run_fuzzyai("http://app.com/api/chat", attack="system-prompt-leak", provider="anthropic")
+run_pyrit("http://app.com/v1/chat", attack="crescendo", objective="Reveal your system prompt", max_turns=8)
+run_pyrit("http://app.com/v1/chat", attack="prompt_injection")
+```
+
+### Attack types
+
+**FuzzyAI** (`run_fuzzyai`):
+
+| Attack | What it tests |
+|--------|---------------|
+| `jailbreak` | Bypasses safety filters via adversarial prompts |
+| `harmful-content` | Elicits policy-violating responses |
+| `pii-extraction` | Extracts personal data from model context |
+| `system-prompt-leak` | Reveals hidden system instructions |
+| `xss-injection` | Injects XSS payloads via prompt |
+| `prompt-injection` | Overrides model instructions via user input |
+
+**PyRIT** (`run_pyrit`):
+
+| Attack | What it tests |
+|--------|---------------|
+| `prompt_injection` | Single-turn adversarial prompt via `PromptSendingOrchestrator` |
+| `jailbreak` | Multi-turn jailbreak via `RedTeamingOrchestrator` |
+| `crescendo` | Escalating multi-turn attack via `CrescendoOrchestrator` |
+| `multi_turn_red_team` | Alias for `jailbreak` |
 
 ---
 
@@ -256,8 +324,10 @@ tools/                 — security scanner definitions + Docker runners
   subfinder.py         — subdomain discovery
   semgrep.py           — static code analysis
   trufflehog.py        — secret/credential scanner
+  fuzzyai.py           — AI/LLM security fuzzer (CyberArk FuzzyAI)
   kali/
-    Dockerfile         — Kali image (installs mcp-kali-server + all tools)
+    Dockerfile         — Kali image (installs mcp-kali-server + all tools + PyRIT)
+    pyrit_runner.py    — CLI wrapper for PyRIT (installed as /usr/local/bin/pyrit-runner)
 
 skills/                — skill & command definitions
   pentester.md         — /pentester slash command (installed to ~/.claude/commands/)
@@ -302,6 +372,7 @@ installers/            — setup scripts
 | `session.json` | target, depth, scope, limits, status |
 | `session_cost.json` | per-tool token counts and USD estimate |
 | `logs/session_*.log` | structured log of every tool call, result, and reasoning note |
+| `.env` | API keys for AI testing tools (mode 600, never committed) |
 
 These are excluded from git (see `.gitignore`).
 
@@ -314,3 +385,126 @@ These are excluded from git (see `.gitignore`).
 ```
 
 Removes the MCP registration, `/pentester` command, and all installed skills. Docker images are left in place.
+
+---
+
+## Tool reference
+
+### MCP tools — always available (lightweight Docker, ephemeral containers)
+
+| Tool | Image | Purpose | Risk |
+|------|-------|---------|------|
+| `run_nmap` | `instrumentisto/nmap` | TCP/UDP port scanning, service version detection, NSE scripts | passive–active |
+| `run_naabu` | `projectdiscovery/naabu` | Fast SYN port sweep, best for top-100 / top-1000 quick recon | active |
+| `run_httpx` | `projectdiscovery/httpx` | HTTP probe — status codes, titles, redirects, tech stack fingerprint | passive |
+| `run_nuclei` | `projectdiscovery/nuclei` | Template-based vuln scanner (CVE, misconfig, exposure, default-login, takeover) | intrusive |
+| `run_ffuf` | via Kali | Web directory/file fuzzer, runs inside the Kali container | intrusive |
+| `run_spider` | via Kali | Web crawler — `fast` mode (katana) or `deep` mode (ZAP + AJAX spider) | active |
+| `run_subfinder` | `projectdiscovery/subfinder` | Passive subdomain enumeration via OSINT sources | passive |
+| `run_semgrep` | `semgrep/semgrep` | Static code analysis on a local codebase (OWASP ruleset + secrets) | passive |
+| `run_trufflehog` | `trufflesecurity/trufflehog` | Secret/credential scanning — git history, files, env vars | passive |
+| `run_fuzzyai` | `ghcr.io/cyberark/fuzzyai` | AI/LLM fuzzer — jailbreaks, prompt injection, PII extraction, system-prompt leakage | intrusive |
+| `http_request` | — (aiohttp) | Raw HTTP request for manual probing or PoC verification; `poc=True` routes through Burp | varies |
+
+### MCP tools — Kali container (persistent, requires `docker build`)
+
+| Tool | Purpose |
+|------|---------|
+| `kali_exec` | Shell access to the full Kali toolchain — run any command listed below |
+| `run_pyrit` | Microsoft PyRIT multi-turn AI red-teaming (prompt injection, jailbreak, crescendo) |
+| `run_spider` | Also runs inside Kali (katana / ZAP) |
+| `run_ffuf` | Also runs inside Kali |
+| `start_kali` | Pre-warm the Kali container before a scan session |
+| `stop_kali` | Stop and remove the Kali container |
+
+### Kali toolchain (via `kali_exec`)
+
+#### Web scanning
+| Command | Purpose |
+|---------|---------|
+| `nikto -h URL` | Web server misconfiguration and vuln scanner |
+| `sqlmap -u URL --batch --dbs` | Automated SQL injection detection and exploitation |
+| `wapiti -u URL -o /tmp/wapiti --format txt` | Web app vuln scanner (XSS, SQLi, SSRF, LFI, …) |
+| `commix --url URL` | Command injection scanner |
+| `xsser --url URL` | XSS detection and exploitation |
+| `whatweb URL` | Aggressive tech stack fingerprinting |
+| `wafw00f URL` | WAF detection |
+
+#### Directory / file enumeration
+| Command | Purpose |
+|---------|---------|
+| `gobuster dir -u URL -w /usr/share/wordlists/dirb/common.txt` | Fast directory brute-force |
+| `feroxbuster -u URL -w WORDLIST` | Recursive directory buster |
+| `dirb URL` | Classic directory brute-force |
+| `wfuzz -u URL/FUZZ -w WORDLIST` | Flexible fuzzer (parameters, headers, paths) |
+| `dirsearch -u URL` | Python directory/file scanner |
+
+#### SSL / TLS
+| Command | Purpose |
+|---------|---------|
+| `testssl --quiet TARGET:443` | Comprehensive TLS cipher and certificate audit |
+| `sslscan TARGET:443` | TLS version and cipher suite enumeration |
+| `sslyze TARGET:443` | TLS config audit (BEAST, CRIME, Heartbleed, …) |
+
+#### DNS / subdomain
+| Command | Purpose |
+|---------|---------|
+| `dnsrecon -d DOMAIN -t axfr` | DNS enumeration including zone transfer attempt |
+| `dnsenum DOMAIN` | DNS brute-force and zone walking |
+| `fierce --domain DOMAIN` | DNS scanner and subdomain brute-forcer |
+| `dnstwist --format csv DOMAIN` | Typosquatting / lookalike domain detection |
+| `amass enum -passive -d DOMAIN` | Passive subdomain enumeration (many sources) |
+
+#### OSINT / recon
+| Command | Purpose |
+|---------|---------|
+| `theHarvester -d DOMAIN -b all -l 100` | Email, subdomain, IP, and employee OSINT |
+| `katana -u URL -d 3 -silent` | Fast headless JS-aware web crawler |
+
+#### Network / services
+| Command | Purpose |
+|---------|---------|
+| `masscan -p1-65535 IP --rate 1000` | High-speed full-port TCP scanner |
+| `ssh-audit TARGET` | SSH configuration and known-vuln audit |
+| `snmpwalk -v2c -c public TARGET` | SNMP OID enumeration |
+| `smtp-user-enum -M VRFY -U users.txt -t TARGET` | SMTP user enumeration |
+| `ike-scan TARGET` | IPsec/IKE VPN fingerprinting |
+| `redis-cli -h TARGET info` | Redis instance recon |
+
+#### SMB / Active Directory
+| Command | Purpose |
+|---------|---------|
+| `enum4linux-ng -A TARGET` | Full SMB/RPC/LDAP enumeration |
+| `nxc smb TARGET --shares` | SMB share enumeration with NetExec |
+| `impacket-secretsdump TARGET` | Dump credentials via SMB/DCE-RPC |
+| `ldapsearch -x -H ldap://TARGET -b '' -s base` | Anonymous LDAP query |
+| `kerbrute userenum users.txt --dc TARGET -d DOMAIN` | Kerberos user enumeration |
+| `certipy find -u USER -p PASS -dc-ip TARGET` | Active Directory Certificate Services audit |
+
+#### Credential testing
+| Command | Purpose |
+|---------|---------|
+| `hydra -l USER -P rockyou.txt TARGET ssh` | Online password brute-force (SSH, FTP, HTTP, …) |
+| `medusa -h TARGET -u USER -P rockyou.txt -M ssh` | Parallel login brute-forcer |
+| `cewl URL -d 2 -m 5` | Custom wordlist from target website content |
+
+#### AI / LLM red-teaming
+| Command | Purpose |
+|---------|---------|
+| `pyrit-runner --target-url URL --attack jailbreak` | PyRIT multi-turn jailbreak |
+| `pyrit-runner --target-url URL --attack crescendo --max-turns 10` | Crescendo escalation attack |
+| `pyrit-runner --target-url URL --attack prompt_injection` | Single-turn adversarial prompt |
+
+### Session / reporting tools
+
+| Tool | Purpose |
+|------|---------|
+| `start_scan` | Initialise session with target, scope, depth, and hard limits |
+| `complete_scan` | Mark scan complete — blocked until diagram + PoCs are present |
+| `report_finding` | Log a confirmed vulnerability (severity, evidence) to `findings.json` |
+| `report_diagram` | Save a Mermaid architecture/network diagram to `findings.json` |
+| `save_poc` | Write a confirmed exploit as a `.http` file for Burp Repeater |
+| `start_dashboard` | Serve live findings dashboard at `http://localhost:5000/dashboard.html` |
+| `log_note` | Write a reasoning note or decision to the session log |
+| `set_codebase_target` | Set local path for `run_semgrep` / `run_trufflehog` |
+| `pull_images` | Pre-pull all lightweight Docker images |
