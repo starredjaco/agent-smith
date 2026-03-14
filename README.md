@@ -21,7 +21,7 @@ You (/pentester scan target.com)
               └── FastAPI dashboard — live findings at http://localhost:5000
 ```
 
-Claude decides what to run. Hard limits (cost / time / call count) are enforced server-side — when any limit is hit, the tool returns a stop signal and Claude writes the final report.
+Claude decides what to run. Each tool's output is aggregated and returned to Claude, which interprets the results and decides the next action — pivoting to deeper scans, skipping dead ends, or reporting findings. Hard limits (cost / time / call count) are enforced server-side — when any limit is hit, the tool returns a stop signal and Claude writes the final report.
 
 ---
 
@@ -44,8 +44,10 @@ flowchart TD
     MCP --> Kali
     MCP --> Core
     Core --> Dashboard
-    Docker -->|scan results| Target
-    Kali -->|scan results| Target
+    Docker -->|raw output| Target
+    Kali -->|raw output| Target
+    Docker -->|aggregated output| Claude
+    Kali -->|aggregated output| Claude
 ```
 
 ---
