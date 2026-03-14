@@ -21,8 +21,8 @@ def _build_args(
 ) -> list[str]:
     # -ut  : update/download templates on first use (no-op if already current)
     # -tags: filter by template metadata tags (works even after dir renames across nuclei versions)
-    # -home-dir: point nuclei at the mounted volume so it reads/writes templates there
-    args = ["-u", url, "-jsonl", "-ut", "-home-dir", "/root", "-silent"]
+    # -ud  : point nuclei at the mounted volume so it reads/writes templates there
+    args = ["-u", url, "-jsonl", "-ut", "-ud", "/root/nuclei-templates", "-silent"]
     if templates:
         args += ["-tags", templates]
     if flags:

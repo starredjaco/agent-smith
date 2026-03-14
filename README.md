@@ -27,31 +27,25 @@ Claude decides what to run. Hard limits (cost / time / call count) are enforced 
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  Claude Code  (AI orchestrator)                                  │
-│    Plans scan · calls MCP tools · reasons over results           │
-└──────────────────────────┬──────────────────────────────────────┘
-                           │ MCP (stdio)
-┌──────────────────────────▼──────────────────────────────────────┐
-│  mcp_server/  (MCP tool layer)                                   │
-│    network · web · exploitation · ai_red_team                    │
-│    scan · reporting · infra                                      │
-└───┬──────────────────┬────────────────────┬──────────────────────┘
-    │                  │                    │
-    ▼                  ▼                    ▼
-┌───────────┐  ┌───────────────┐  ┌────────────────────────────────┐
-│  Docker   │  │  Kali Linux   │  │  core/                         │
-│ containers│  │  container    │  │    session · cost · logger      │
-│ (ephemeral│  │  (persistent) │  │    findings · api_server       │
-│   --rm)   │  │  port 5001    │  └─────────────┬──────────────────┘
-└─────┬─────┘  └──────┬────────┘               │
-      │               │                         ▼
-      ▼               ▼              ┌─────────────────────┐
-┌─────────────────────────────┐      │  FastAPI dashboard  │
-│  Target                     │      │  localhost:5000     │
-│  (URL · IP · codebase)      │      │  5 tabs             │
-└─────────────────────────────┘      └─────────────────────┘
+```mermaid
+flowchart TD
+    User["You\n/pentester · /threat-model · /gh-export"]
+    Claude["Claude Code\nAI orchestrator"]
+    MCP["mcp_server/\nMCP tool layer\nnetwork · web · exploitation · ai_red_team · reporting"]
+    Docker["Docker containers\nephemeral --rm\nnmap · nuclei · httpx · ffuf · semgrep · trufflehog"]
+    Kali["Kali Linux container\npersistent · port 5001\nnikto · sqlmap · hydra · testssl · pyrit"]
+    Core["core/\nsession · cost · logger · findings · api_server"]
+    Dashboard["FastAPI dashboard\nlocalhost:5000\nFindings · Topology · Components · Threat Model · Logs"]
+    Target["Target\nURL · IP range · codebase"]
+
+    User -->|slash command| Claude
+    Claude -->|MCP stdio| MCP
+    MCP --> Docker
+    MCP --> Kali
+    MCP --> Core
+    Core --> Dashboard
+    Docker -->|scan results| Target
+    Kali -->|scan results| Target
 ```
 
 ---
