@@ -178,7 +178,7 @@ async def run_crescendo(args: argparse.Namespace) -> None:
 async def main() -> None:
     args = build_parser().parse_args()
 
-    print(f"[*] PyRIT red-team session")
+    print("[*] PyRIT red-team session")
     print(f"    attack    : {args.attack}")
     print(f"    target    : {args.target_url}")
     print(f"    objective : {args.objective}")

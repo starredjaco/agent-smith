@@ -23,7 +23,7 @@ def _make_proc(stdout: bytes = b"", stderr: bytes = b"", returncode: int = 0):
 async def test_returns_stdout_string():
     proc = _make_proc(stdout=b"open port 80")
     with patch("tools.docker_runner.asyncio.create_subprocess_exec", return_value=proc):
-        stdout, stderr, code = await run_container("nmap:latest", ["--help"])
+        stdout, _, _ = await run_container("nmap:latest", ["--help"])
     assert stdout == "open port 80"
 
 
@@ -31,7 +31,7 @@ async def test_returns_stdout_string():
 async def test_returns_stderr_string():
     proc = _make_proc(stderr=b"warning: something")
     with patch("tools.docker_runner.asyncio.create_subprocess_exec", return_value=proc):
-        stdout, stderr, code = await run_container("nmap:latest", [])
+        _, stderr, _ = await run_container("nmap:latest", [])
     assert stderr == "warning: something"
 
 

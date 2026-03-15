@@ -27,14 +27,14 @@ def test_start_sets_status_running():
 
 def test_start_applies_preset_limits():
     sess = core.session.start("example.com", depth="recon")
-    assert sess["limits"]["max_cost_usd"] == 0.10
+    assert sess["limits"]["max_cost_usd"] == pytest.approx(0.10)
     assert sess["limits"]["max_time_minutes"] == 15
     assert sess["limits"]["max_tool_calls"] == 10
 
 
 def test_start_thorough_preset():
     sess = core.session.start("example.com", depth="thorough")
-    assert sess["limits"]["max_cost_usd"] == 2.00
+    assert sess["limits"]["max_cost_usd"] == pytest.approx(2.00)
     assert sess["limits"]["max_tool_calls"] == 60
 
 
@@ -43,7 +43,7 @@ def test_start_custom_limits_override_preset():
         "example.com", depth="recon",
         max_cost_usd=5.0, max_time_minutes=999, max_tool_calls=100
     )
-    assert sess["limits"]["max_cost_usd"] == 5.0
+    assert sess["limits"]["max_cost_usd"] == pytest.approx(5.0)
     assert sess["limits"]["max_time_minutes"] == 999
     assert sess["limits"]["max_tool_calls"] == 100
 

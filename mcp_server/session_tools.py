@@ -35,9 +35,9 @@ async def session(action: str, options: dict | None = None) -> str:
     opts = options or {}
 
     if action == "start":
-        return await _do_start(opts)
+        return _do_start(opts)
     elif action == "complete":
-        return await _do_complete(opts)
+        return _do_complete(opts)
     elif action == "status":
         return _do_status()
     elif action == "start_kali":
@@ -52,7 +52,7 @@ async def session(action: str, options: dict | None = None) -> str:
         return f"Unknown action '{action}'. Use: start, complete, status, start_kali, stop_kali, pull_images, set_codebase"
 
 
-async def _do_start(opts):
+def _do_start(opts):
     _session_tools_called.clear()
     target = opts.get("target", "")
     depth = opts.get("depth", "standard")
@@ -70,7 +70,7 @@ async def _do_start(opts):
         f"limits: ${lim['max_cost_usd']} / {lim['max_time_minutes']}min / {lim['max_tool_calls']} calls"
     )
     lines = [
-        f"Scan session started.",
+        "Scan session started.",
         f"  Target      : {target}",
         f"  Depth       : {cfg['depth_label']} — {cfg['description']}",
         f"  Scope       : {', '.join(cfg['scope'])}",
@@ -81,14 +81,14 @@ async def _do_start(opts):
         f"  Cost limit  : ${lim['max_cost_usd']}",
         f"  Time limit  : {lim['max_time_minutes']} min",
         f"  Call limit  : {lim['max_tool_calls']} tool calls",
-        f"",
+        "",
         f"Proceed with the {depth} scan workflow.",
-        f"Stop and call session(action='complete') when finished or when a limit is hit.",
+        "Stop and call session(action='complete') when finished or when a limit is hit.",
     ]
     return "\n".join(lines)
 
 
-async def _do_complete(opts):
+def _do_complete(opts):
     notes = opts.get("notes", "")
     blockers: list[str] = []
 
@@ -178,7 +178,7 @@ async def _do_pull_images():
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
         )
-        stdout, _ = await proc.communicate()
+        _, _ = await proc.communicate()
         status = "ok" if proc.returncode == 0 else "FAILED"
         lines.append(f"[{status}] {image}")
     result = "\n".join(lines)

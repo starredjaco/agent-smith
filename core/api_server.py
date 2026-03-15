@@ -222,7 +222,6 @@ async def serve(port: int = 5000) -> str:
     a previously spawned dashboard instead of killing it.
     """
     import signal
-    import subprocess as _sp
 
     # Check PID file first — survives MCP server restarts
     saved_pid = _read_pid()
@@ -237,22 +236,24 @@ async def serve(port: int = 5000) -> str:
         except OSError:
             pass
 
-    # Fire-and-forget: Popen returns immediately, child runs independently.
+    # Fire-and-forget: process runs independently in a new session.
     # stdout/stderr → /dev/null so the MCP stdio pipe is never touched.
     # start_new_session=True detaches from MCP server's process group.
-    proc = _sp.Popen(
-        [sys.executable, "-m", "uvicorn",
-         "core.api_server:app",
-         "--host", "0.0.0.0",
-         "--port", str(port),
-         "--no-access-log",
-         "--log-level", "critical"],
-        stdout=_sp.DEVNULL,
-        stderr=_sp.DEVNULL,
+    proc = await asyncio.create_subprocess_exec(
+        sys.executable, "-m", "uvicorn",
+        "core.api_server:app",
+        "--host", "0.0.0.0",
+        "--port", str(port),
+        "--no-access-log",
+        "--log-level", "critical",
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.DEVNULL,
         cwd=str(_REPO_ROOT),
         start_new_session=True,
     )
     _write_pid(proc.pid)
 
     await asyncio.sleep(1.5)     # give uvicorn time to bind the port
+    if not _port_healthy(port):
+        return f"Dashboard failed to start on port {port}"
     return f"http://localhost:{port}"

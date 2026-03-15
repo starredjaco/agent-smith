@@ -26,7 +26,6 @@ def test_load_dotenv_sets_missing_key(tmp_path, monkeypatch):
         m.setattr(os.path, "dirname", lambda _: str(tmp_path / "mcp_server"))
         # _load_dotenv builds: os.path.dirname(os.path.dirname(__file__)) / ".env"
         # We patch os.path.isfile and open instead for a more reliable approach
-        pass
 
     # Direct approach: write a real .env relative to a temp dir and invoke
     # _load_dotenv with a monkeypatched __file__ path

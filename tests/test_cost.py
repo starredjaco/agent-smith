@@ -55,7 +55,7 @@ def test_finish_token_count_is_chars_div_4():
 
 def test_summary_counts_running_and_done():
     id1 = core.cost.start("tool_a")
-    id2 = core.cost.start("tool_b")
+    core.cost.start("tool_b")
     core.cost.finish(id1, "result")
     summary = core.cost.get_summary()
     assert summary["tool_calls_total"] == 2
