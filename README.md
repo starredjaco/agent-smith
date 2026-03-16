@@ -68,12 +68,14 @@ flowchart TD
 ### Install
 
 ```bash
-git clone <repo-url>
+git clone --recursive <repo-url>
 cd agent-smith
 ./installers/install.sh
 ```
 
-The installer handles everything: Poetry dependencies, API key prompts, MCP registration, and skill installation.
+The `--recursive` flag pulls the [skills submodule](https://github.com/0x0pointer/skills) automatically. The installer handles everything else: Poetry dependencies, API key prompts, MCP registration, and skill installation.
+
+> **Already cloned without `--recursive`?** Run `git submodule update --init --recursive` to pull the skills.
 
 > **After install, fully quit and reopen Claude Code.** The MCP server connects at startup — tools won't be available until you do this.
 
@@ -88,6 +90,7 @@ Open Claude Code and use a slash command:
 /threat-model
 /analyze-cve lodash 4.17.20 CVE-2021-23337
 /aikido-triage ~/Downloads/findings.csv /path/to/codebase
+/ai-redteam https://ai-app.com/api/chat provider=openai depth=standard
 ```
 
 Claude calls `start_dashboard` automatically. Open `http://localhost:5000` to watch findings appear in real time.
@@ -133,12 +136,13 @@ tools/kali/              Kali image
   Dockerfile             Builds pentest-agent/kali-mcp
   pyrit_runner.py        CLI shim for Microsoft PyRIT
 
-skills/                  Slash command definitions
+skills/                  Slash command definitions (git submodule → github.com/0x0pointer/skills)
   pentester.md
   analyze-cve/SKILL.md
   threat-modeling/SKILL.md
   aikido-triage/SKILL.md
   gh-export/SKILL.md
+  ai-redteam/SKILL.md
 
 templates/
   dashboard.html         4-tab dashboard (Findings · Topology · Threat Model · Logs)
@@ -159,4 +163,6 @@ installers/              install.sh · uninstall.sh
 | [docs/skills.md](docs/skills.md) | Slash commands, chaining guide, examples |
 | [docs/dashboard-api.md](docs/dashboard-api.md) | FastAPI endpoints, response shapes |
 | [docs/extending.md](docs/extending.md) | How to add new tools and skills |
+
+> **Adding a new skill?** Skills live in a separate repo ([github.com/0x0pointer/skills](https://github.com/0x0pointer/skills)) pulled in as a git submodule. After adding a skill there, update the submodule pointer (`git add skills && git commit`) and re-run `./installers/install.sh` to deploy it to `~/.claude/skills/`.
 | [docs/testing.md](docs/testing.md) | Running the test suite, coverage, adding new tests |
