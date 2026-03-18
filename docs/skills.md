@@ -34,7 +34,7 @@ Full penetration test — recon through exploitation through reporting.
 |---|---|---|---|---|
 | `recon` | naabu + subfinder + httpx | $0.10 | 15 min | 10 |
 | `standard` | recon + nuclei + spider + ffuf | $0.50 | 45 min | 25 |
-| `thorough` | standard + full Kali toolchain | $2.00 | 120 min | 60 |
+| `thorough` | standard + full Kali toolchain | $2.00 | 120 min | unlimited |
 
 ---
 
@@ -191,23 +191,204 @@ Red-team assessment of AI/LLM endpoints using the OWASP LLM Top 10 (2025) framew
 
 ---
 
+## `/osint`
+
+Deep passive OSINT reconnaissance using the MITRE ATT&CK Reconnaissance framework. All techniques are passive — no active exploitation.
+
+```
+/osint secureby.design thorough
+/osint example.com depth=standard
+/osint acme-corp.io depth=quick
+```
+
+**What it does:**
+
+1. Calls `start_scan` with target domain and depth
+2. **DNS & WHOIS** — registrant info, name servers, MX/TXT/NS records, DNSSEC status
+3. **Certificate Transparency** — subdomain discovery via crt.sh, historical cert analysis, wildcard detection
+4. **Email harvesting** — theHarvester across all sources, SMTP verification (VRFY/EXPN/RCPT TO), catch-all detection
+5. **Infrastructure mapping** — amass, dnsrecon, fierce, whatweb, wafw00f, dnstwist (typosquatting)
+6. **Subdomain takeover detection** — CNAME enumeration, dangling record identification, service-specific fingerprints
+7. **Wayback Machine** — archived endpoints, deprecated APIs, leaked secrets in JS bundles, historical architecture
+8. **Social media & GitHub** — org repos, commit author emails, secrets in code, employee discovery
+9. **Cloud storage enumeration** — S3, Azure Blob, GCS bucket fuzzing
+10. **Document metadata extraction** — metagoofil + exiftool for employee names, software versions, GPS coordinates
+11. Calls `report_diagram` with infrastructure map
+12. Calls `complete_scan` — chains into `/pentester` if active scanning is authorized
+
+Every finding is scored by confidence: **Confirmed** (authoritative source), **Likely** (2+ independent sources), or **Speculative** (single source).
+
+**Depth presets:**
+
+| Depth | Tools | Cost | Time | Calls |
+|---|---|---|---|---|
+| `quick` | theHarvester + subfinder + WHOIS + DNS + crt.sh | $0.05 | 10 min | 8 |
+| `standard` | quick + amass + email verification + Wayback + metadata | $0.20 | 30 min | 20 |
+| `thorough` | standard + Shodan + cloud enum + social + takeover detection | $0.50 | 60 min | 40 |
+
+---
+
+## `/container-k8s-security`
+
+Comprehensive container and Kubernetes security assessment covering OWASP Kubernetes Top 10 and all 22 Kubernetes Goat attack scenarios.
+
+```
+/container-k8s-security kind-cluster type=kubernetes perspective=external depth=thorough
+/container-k8s-security docker-host type=docker depth=standard
+```
+
+**What it does:**
+
+1. **Service discovery** — K8s infrastructure ports (API server, etcd, kubelet, Docker daemon, registries, NodePorts)
+2. **API server & control plane probing** — anonymous auth, etcd direct access, kubelet RCE via /run
+3. **NodePort enumeration** — scan 30000-32767, identify exposed services
+4. **Pod security audit** — privileged containers, host namespaces, hostPath mounts, dangerous capabilities, missing resource limits
+5. **Container escape analysis** — Docker/containerd socket mounts, privileged chroot escape, hostPath abuse
+6. **RBAC audit** — cluster-admin bindings, wildcard permissions, SA token API probing, pod creation RBAC
+7. **Secrets exposure** — K8s secrets enumeration, env var injection, .git in containers, etcd encryption check
+8. **Image supply chain** — Trivy scanning, image layer inspection (crictl/docker history), private registry attacks, crypto miner detection
+9. **Network segmentation** — NetworkPolicy presence, cross-namespace connectivity, SSRF to cloud metadata
+10. **CIS benchmarks** — kube-bench (deployed as K8s Job), docker-bench-security (containerd-aware)
+11. **Defensive controls gap analysis** — admission controllers, PodSecurity, runtime security, audit logging
+12. Calls `report_diagram` with attack path map and `complete_scan`
+
+**Depth presets:**
+
+| Depth | Tools | Cost | Time | Calls |
+|---|---|---|---|---|
+| `quick` | Discovery + API probing + anonymous auth | $0.10 | 15 min | 10 |
+| `standard` | quick + pod security + RBAC + secrets + images | $0.50 | 45 min | 30 |
+| `thorough` | standard + CIS benchmarks + network + escape exploitation + defense gaps | $2.00 | 120 min | 60 |
+
+---
+
+## `/ssl-tls-audit`
+
+Deep TLS/SSL configuration audit with compliance mapping to PCI DSS 4.0, NIST SP 800-52r2, and FedRAMP.
+
+```
+/ssl-tls-audit secureby.design depth=thorough
+/ssl-tls-audit 10.0.0.1:443 depth=standard
+/ssl-tls-audit mail.example.com depth=quick
+```
+
+**What it does:**
+
+1. Calls `start_scan` with target and depth
+2. **Automated scanning** — testssl.sh, sslscan, sslyze, nuclei SSL templates in parallel
+3. **Protocol version analysis** — SSLv2/3, TLS 1.0/1.1/1.2/1.3 support and enforcement
+4. **Cipher suite & ordering** — NULL, EXPORT, DES, RC4, 3DES, CBC, DHE strength, server preference
+5. **Certificate chain validation** — validity, chain completeness, key size, SAN, CT logs, OCSP stapling
+6. **Known vulnerability testing** — Heartbleed, POODLE, BEAST, CRIME, BREACH, ROBOT, DROWN, Lucky13, Ticketbleed, GOLDENDOODLE
+7. **ECDHE curve analysis** — P-256, P-384, P-521, X25519, brainpool, preference enforcement
+8. **TLS 1.3 specific** — 0-RTT replay, PSK modes, downgrade detection, GREASE, TLS_FALLBACK_SCSV
+9. **Session management** — ticket reuse, session ID fixation, resumption, ticket lifetime
+10. **Renegotiation** — client-initiated DoS, secure renegotiation (RFC 5746)
+11. **HSTS analysis** — max-age, includeSubDomains, preload list, subdomain bypass
+12. **Certificate revocation** — CRL distribution points, OCSP responder, stapled response freshness
+13. **Multi-port TLS scanning** — 20+ TLS-bearing ports (SMTP, IMAP, LDAPS, RDP, MQTT, etc.)
+14. **Compliance mapping** — PCI DSS 4.0 Section 4, NIST SP 800-52r2, FedRAMP controls
+15. Calls `report_finding` for every confirmed weakness with compliance impact
+
+**Depth presets:**
+
+| Depth | Tools | Cost | Time | Calls |
+|---|---|---|---|---|
+| `quick` | testssl quick mode + HSTS check | $0.05 | 5 min | 5 |
+| `standard` | testssl full + sslscan + nuclei SSL + HTTP headers + cert chain | $0.20 | 15 min | 12 |
+| `thorough` | standard + openssl manual + nmap + multi-port + TLS 1.3 deep + session + renegotiation + revocation + compliance | $0.50 | 30 min | 25 |
+
+---
+
+## `/network-assess`
+
+Internal network assessment — assumes attacker has physical or VPN access to the target network.
+
+```
+/network-assess 192.168.1.0/24 depth=standard
+/network-assess 10.0.0.0/16 depth=thorough
+/network-assess 172.16.0.0/24 depth=quick
+```
+
+**What it does:**
+
+1. **Host discovery** — ARP scan, ping sweep, NetBIOS enumeration
+2. **Port scanning & service detection** — naabu fast scan, nmap service detection, full port scan at thorough depth
+3. **Broadcast protocol analysis** — LLMNR/NBT-NS/mDNS detection (poisoning risk for credential capture)
+4. **SNMP enumeration** — community string brute-force, SNMP walk for device info, routing tables, processes
+5. **Share enumeration** — SMB shares (null session, anonymous), NFS exports
+6. **Network segmentation testing** — inter-VLAN access, firewall rule testing, DNS segmentation
+7. **Infrastructure device audit** — router/switch discovery, default credentials, SSH audit
+8. Calls `report_diagram` with network topology and `complete_scan`
+
+**Depth presets:**
+
+| Depth | Tools | Cost | Time | Calls |
+|---|---|---|---|---|
+| `quick` | host discovery + top-100 ports + service ID | $0.10 | 15 min | 10 |
+| `standard` | quick + top-1000 ports + SMB/SNMP/NFS enum + broadcast protocols | $0.50 | 45 min | 25 |
+| `thorough` | standard + full port scan + segmentation testing + router/switch audit | $2.00 | 120 min | 60 |
+
+## `/post-exploit`
+
+Post-exploitation workflow — privilege escalation, credential harvesting, persistence assessment, and pivot preparation. Uses LinPEAS/WinPEAS as primary enumeration with dynamic GTFOBins cross-referencing.
+
+```
+/post-exploit 10.0.0.5 os=linux access=ssh current-user=www-data depth=standard
+/post-exploit 10.0.0.10 os=windows access=winrm current-user=svc_web depth=thorough
+/post-exploit 192.168.1.50 os=linux access=shell depth=quick
+```
+
+**What it does:**
+
+1. **Local enumeration** — `quick`: minimal checks (id, sudo -l, SUID, whoami /priv); `standard+`: LinPEAS/WinPEAS comprehensive scan with output parsing guidance
+2. **Privilege escalation** — decision tree: sudo rules, GTFOBins (40+ binaries with dynamic cross-reference), kernel exploits (DirtyPipe, DirtyCow, PwnKit, OverlayFS), Potato attacks (GodPotato, PrintSpoofer, JuicyPotato), token manipulation, DLL hijacking, container escapes
+3. **Credential harvesting** — shadow hashes, SSH keys + agent hijacking, process memory, config files, browser credentials, LSASS/SAM/DPAPI, hash cracking with john
+4. **Persistence assessment** — cron, systemd, SSH authorized_keys, init scripts, registry Run keys, scheduled tasks, WMI subscriptions
+5. **Pivot preparation** — network mapping from compromised host, credential reuse testing, SSH key reuse
+
+**Depth presets:**
+
+| Depth | Tools | Cost | Time | Calls |
+|---|---|---|---|---|
+| `quick` | Manual checks only (decision tree inputs) + exploitation + credential search | $0.10 | 15 min | 10 |
+| `standard` | LinPEAS/WinPEAS + targeted exploitation + hash extraction + credential harvesting | $0.50 | 45 min | 25 |
+| `thorough` | Standard + kernel exploits + container escapes + token manipulation + persistence + pivot | $2.00 | 120 min | 60 |
+
+---
+
 ## Chaining skills
 
 Skills are designed to be chained automatically during an engagement:
 
 ```
 Before a pentest
-  └── /threat-model          identify high-risk areas to focus the scan
+  ├── /osint                  passive recon — subdomains, emails, tech stack, cloud storage
+  └── /threat-model           identify high-risk areas to focus the scan
 
 During a pentest (/pentester)
   ├── /analyze-cve            if nuclei or semgrep finds a CVE dependency
+  ├── /ssl-tls-audit          if TLS services are found — PCI DSS/NIST compliance audit
+  ├── /network-assess         if internal network scope — segmentation, SNMP, broadcast protocols
+  ├── /post-exploit           initial access obtained — privesc, credential harvesting, pivot
+  ├── /container-k8s-security if Docker/K8s infrastructure is discovered
   ├── /ai-redteam             if an LLM endpoint is discovered
-  └── runs automatically
+  └── /supply-chain           if codebase scan — dependency + CI/CD security
+
+After initial access (/post-exploit)
+  ├── /lateral-movement       credentials + pivot opportunities — pass-the-hash, Kerberoasting
+  ├── /ad-assessment          domain credentials obtained — full AD audit
+  ├── /credential-audit       harvested hashes — crack and test credentials
+  └── /cloud-security         cloud credentials found — assess cloud posture
+
+During a codebase scan
+  └── /analyze-cve            trace CVE reachability in code
 
 For AI/LLM targets (instead of /pentester)
   └── /ai-redteam             OWASP LLM Top 10 assessment
 
 After a pentest
+  ├── /threat-model           STRIDE analysis based on discovered architecture
   ├── /aikido-triage          if an Aikido CSV export is available
   └── /gh-export              format all findings as GitHub issues
 ```
