@@ -370,16 +370,14 @@ During a pentest (/pentester)
   ├── /analyze-cve            if nuclei or semgrep finds a CVE dependency
   ├── /ssl-tls-audit          if TLS services are found — PCI DSS/NIST compliance audit
   ├── /network-assess         if internal network scope — segmentation, SNMP, broadcast protocols
+  ├── /credential-audit       weak auth found — brute-force, spraying, default credentials
   ├── /post-exploit           initial access obtained — privesc, credential harvesting, pivot
   ├── /container-k8s-security if Docker/K8s infrastructure is discovered
-  ├── /ai-redteam             if an LLM endpoint is discovered
-  └── /supply-chain           if codebase scan — dependency + CI/CD security
+  └── /ai-redteam             if an LLM endpoint is discovered
 
 After initial access (/post-exploit)
   ├── /lateral-movement       credentials + pivot opportunities — pass-the-hash, Kerberoasting
-  ├── /ad-assessment          domain credentials obtained — full AD audit
-  ├── /credential-audit       harvested hashes — crack and test credentials
-  └── /cloud-security         cloud credentials found — assess cloud posture
+  └── /credential-audit       harvested hashes — crack and test credentials
 
 During a codebase scan
   └── /analyze-cve            trace CVE reachability in code
