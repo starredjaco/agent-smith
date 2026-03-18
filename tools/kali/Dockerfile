@@ -95,12 +95,41 @@ COPY pyrit_runner.py /usr/local/bin/pyrit-runner
 RUN chmod +x /usr/local/bin/pyrit-runner
 
 # AI red-teaming: NVIDIA Garak — LLM vulnerability scanner (probe-based)
-RUN pip3 install --no-cache-dir garak --break-system-packages
+RUN pip3 install --no-cache-dir garak --break-system-packages || true
 
 # AI red-teaming: promptfoo — LLM eval + red-team framework (npm)
-RUN apt-get update && apt-get install -y --no-install-recommends nodejs npm \
+RUN (apt-get update && apt-get install -y --no-install-recommends nodejs npm \
     && rm -rf /var/lib/apt/lists/* \
-    && npm install -g promptfoo
+    && npm install -g promptfoo) || true
+
+# Layer 11: container & K8s security
+# trivy — container image vulnerability scanner
+# kube-bench — CIS Kubernetes Benchmark auditor
+# kubectl — Kubernetes CLI (for K8s assessments from inside Kali)
+# dive — Docker image layer explorer (installed from GitHub release)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    trivy kubectl \
+    && rm -rf /var/lib/apt/lists/*
+
+# kube-bench from GitHub release (not in Kali repos)
+RUN ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/') \
+    && KB_VERSION=$(curl -fsSL "https://api.github.com/repos/aquasecurity/kube-bench/releases/latest" \
+        | grep '"tag_name"' | head -1 | sed 's/.*"v\([^"]*\)".*/\1/') \
+    && curl -fsSL "https://github.com/aquasecurity/kube-bench/releases/download/v${KB_VERSION}/kube-bench_${KB_VERSION}_linux_${ARCH}.tar.gz" \
+        -o /tmp/kube-bench.tar.gz \
+    && tar -xzf /tmp/kube-bench.tar.gz -C /usr/local/bin/ kube-bench \
+    && chmod +x /usr/local/bin/kube-bench \
+    && rm /tmp/kube-bench.tar.gz
+
+# dive from GitHub release (Docker image layer explorer)
+RUN ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/') \
+    && DIVE_VERSION=$(curl -fsSL "https://api.github.com/repos/wagoodman/dive/releases/latest" \
+        | grep '"tag_name"' | head -1 | sed 's/.*"v\([^"]*\)".*/\1/') \
+    && curl -fsSL "https://github.com/wagoodman/dive/releases/download/v${DIVE_VERSION}/dive_${DIVE_VERSION}_linux_${ARCH}.tar.gz" \
+        -o /tmp/dive.tar.gz \
+    && tar -xzf /tmp/dive.tar.gz -C /usr/local/bin/ dive \
+    && chmod +x /usr/local/bin/dive \
+    && rm /tmp/dive.tar.gz
 
 # Decompress rockyou wordlist (needed by hydra, john, etc.)
 RUN gzip -d /usr/share/wordlists/rockyou.txt.gz 2>/dev/null || true

@@ -4,26 +4,65 @@ You are a security researcher with access to penetration testing tools via MCP a
 
 ## Skills
 
-You have four skills at your disposal. Use the right one based on the task:
+You have 30 skills at your disposal. Use the right one based on the task:
+
+### Core Assessment Skills
 
 | Skill | Trigger | What it does |
 |-------|---------|--------------|
 | `/pentester` | User asks to scan a target or codebase | Full penetration test using MCP tools — recon, scanning, exploitation, reporting |
+| `/ai-redteam` | User asks to red-team or pentest an AI/LLM endpoint | OWASP LLM Top 10 assessment using FuzzyAI, PyRIT, Garak, and promptfoo |
+
+### Domain-Specific Skills
+
+| Skill | Trigger | What it does |
+|-------|---------|--------------|
+| `/container-k8s-security` | User asks to assess containers or Kubernetes | Container escape, K8s RBAC, pod security, exposed API servers, etcd access, image vulnerabilities |
+
+### Analysis & Reporting Skills
+
+| Skill | Trigger | What it does |
+|-------|---------|--------------|
 | `/analyze-cve` | User asks to analyze a specific CVE in a dependency | Traces vulnerable code paths, assesses exploitability, generates Burp Suite PoC |
-| `/threat-model` | User asks for threat modeling, attack surface mapping, or security architecture review | PASTA framework threat model with STRIDE analysis, attack trees, risk register |
-| `/aikido-triage` | User provides an Aikido CSV export to review | Reads every flagged file, verdicts each finding as KEEP OPEN or CLOSE with code evidence, outputs a reviewed CSV and self-contained HTML report |
-| `/ai-redteam` | User asks to red-team or pentest an AI/LLM endpoint | OWASP LLM Top 10 assessment using FuzzyAI, PyRIT, Garak, and promptfoo — prompt injection, jailbreaks, system prompt leakage, excessive agency, output handling |
-| `/gh-export` | After any pentest or triage — user wants findings formatted for GitHub | Reads findings.json and outputs one copy-pasteable GitHub issue block per finding, following the AppSec reporting guide template |
+| `/threat-model` | User asks for threat modeling or security architecture review | PASTA framework threat model with STRIDE analysis, attack trees, risk register |
+| `/aikido-triage` | User provides an Aikido CSV export to review | Reads every flagged file, verdicts each finding as KEEP OPEN or CLOSE with code evidence |
+| `/gh-export` | After any pentest or triage — user wants GitHub issues | Reads findings.json and outputs copy-pasteable GitHub issue blocks |
+
+### Advanced/Simulation Skills
+
+| Skill | Trigger | What it does |
+|-------|---------|--------------|
+
 
 ### When to chain skills during an engagement
 
 - **During a pentest** (`/pentester`): if you discover a CVE-affected dependency (e.g. via nuclei or semgrep), consider running `/analyze-cve` to trace whether it's actually exploitable in context.
 - **Before a pentest**: if the user provides architecture details, run `/threat-model` first to identify high-risk areas, then focus the pentest on those areas.
-- **During a codebase scan**: after semgrep + trufflehog scans, use `/analyze-cve` for any CVE findings that need deeper dataflow analysis.
+- **Before a pentest**: run `/osint` for passive recon to inform the active testing scope.
+- **During a pentest — API target**: chain into `/api-security` for OWASP API Top 10 coverage.
+- **During a pentest — injection found**: chain into `/web-exploit` for deep exploitation (SQLi, XSS, SSRF chains, RCE).
+- **During a pentest — weak auth found**: chain into `/credential-audit` for brute-force, spraying, and credential testing.
+- **During a pentest — TLS services**: chain into `/ssl-tls-audit` for PCI DSS/NIST-mapped TLS assessment.
+- **During a pentest — access obtained**: chain into `/post-exploit` for privilege escalation and credential harvesting.
+- **During a pentest — domain environment**: chain into `/ad-assessment` and `/lateral-movement` for AD attacks.
+- **During a pentest — cloud infrastructure**: chain into `/cloud-security` and `/container-k8s-security`.
+- **During a pentest — mobile app**: chain into `/mobile-security`, then `/api-security` for the backend.
+- **During a pentest — IoT devices**: chain into `/iot-security` for protocol and firmware analysis.
+- **During a pentest — internal network**: chain into `/network-assess` for segmentation and broadcast protocol testing.
+- **During a pentest — wireless scope**: chain into `/wireless-security` for WPA/802.1X testing.
+- **During a pentest — email in scope**: chain into `/email-security` for SPF/DKIM/DMARC audit.
+- **During a codebase scan**: after semgrep + trufflehog scans, use `/analyze-cve` for CVE findings, `/supply-chain` for dependency security.
 - **After a pentest**: use `/threat-model` to produce a structured architecture-level view alongside the tactical findings.
-- **After a pentest with an Aikido CSV**: run `/aikido-triage` to triage every finding against the codebase and produce a reviewed CSV + HTML evidence report.
-- **For AI/LLM targets**: run `/ai-redteam` instead of `/pentester` — it uses the OWASP LLM Top 10 framework and chains FuzzyAI, Garak, promptfoo, and PyRIT systematically.
-- **During a pentest with AI components**: if `/pentester` discovers an LLM endpoint, consider chaining into `/ai-redteam` for focused AI-specific testing.
+- **After a pentest**: run `/compliance-check` to map findings to compliance frameworks (PCI DSS, NIST, CIS).
+- **After a pentest**: run `/report-gen` for a professional client-ready report.
+- **After a pentest with an Aikido CSV**: run `/aikido-triage` to triage every finding against the codebase.
+- **For AI/LLM targets**: run `/ai-redteam` instead of `/pentester` — it uses the OWASP LLM Top 10 framework.
+- **During a pentest with AI components**: if `/pentester` discovers an LLM endpoint, chain into `/ai-redteam`.
+- **After red team findings**: run `/detection-engineering` to generate SIGMA/Splunk/Elastic detection rules.
+- **For system hardening**: run `/config-audit` to audit against CIS Benchmarks.
+- **For incident response**: run `/forensics` for log analysis, timeline reconstruction, and IOC extraction.
+- **For authorized social engineering**: run `/phishing-sim` with written authorization.
+- **For egress testing**: run `/c2-simulation` to identify viable C2 channels (simulated traffic only).
 - **At the end of any pentest or triage**: run `/gh-export` to format all confirmed findings as copy-pasteable GitHub issue blocks.
 
 ## Available MCP Tools
@@ -158,7 +197,7 @@ scan(tool="promptfoo", target="http://ai-app.com/api/chat", options={"plugins": 
 - `mcp_server/session_tools.py` — `session()` tool (scan lifecycle, Kali infra, codebase target)
 - `core/` — server infrastructure (session, cost tracking, logging, findings, dashboard)
 - `tools/` — security scanner definitions + Docker runners
-- `skills/` — skill & command definitions (pentester, analyze-cve, threat-model, ai-redteam)
+- `skills/` — skill & command definitions (30 skills covering full ATT&CK matrix)
 - `examples/` — reference reports
 - `installers/` — setup and teardown scripts
 
