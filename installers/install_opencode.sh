@@ -84,7 +84,8 @@ cp "$REPO_DIR/skills/threat-modeling/SKILL.md"   "$OPENCODE_COMMANDS_DIR/threat-
 cp "$REPO_DIR/skills/aikido-triage/SKILL.md"     "$OPENCODE_COMMANDS_DIR/aikido-triage.md"
 cp "$REPO_DIR/skills/gh-export/SKILL.md"         "$OPENCODE_COMMANDS_DIR/gh-export.md"
 cp "$REPO_DIR/skills/ai-redteam/SKILL.md"       "$OPENCODE_COMMANDS_DIR/ai-redteam.md"
-ok "/pentester, /analyze-cve, /threat-model, /aikido-triage, /gh-export, /ai-redteam commands available in all opencode sessions"
+cp "$REPO_DIR/skills/container-k8s-security/SKILL.md" "$OPENCODE_COMMANDS_DIR/container-k8s-security.md"
+ok "/pentester, /analyze-cve, /threat-model, /aikido-triage, /gh-export, /ai-redteam, /container-k8s-security commands available"
 
 # ── Next steps ────────────────────────────────────────────────────────────────
 echo ""

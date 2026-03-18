@@ -75,6 +75,10 @@ mkdir -p "$HOME/.claude/skills/ai-redteam"
 cp "$REPO_DIR/skills/ai-redteam/SKILL.md" "$HOME/.claude/skills/ai-redteam/SKILL.md"
 ok "/ai-redteam skill installed"
 
+mkdir -p "$HOME/.claude/skills/container-k8s-security"
+cp "$REPO_DIR/skills/container-k8s-security/SKILL.md" "$HOME/.claude/skills/container-k8s-security/SKILL.md"
+ok "/container-k8s-security skill installed"
+
 # ── AI testing API keys (FuzzyAI + PyRIT) ────────────────────────────────────
 echo ""
 echo "AI testing tools (FuzzyAI + PyRIT) use LLM APIs for attacks and scoring."
