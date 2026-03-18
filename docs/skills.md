@@ -329,6 +329,32 @@ Internal network assessment — assumes attacker has physical or VPN access to t
 | `standard` | quick + top-1000 ports + SMB/SNMP/NFS enum + broadcast protocols | $0.50 | 45 min | 25 |
 | `thorough` | standard + full port scan + segmentation testing + router/switch audit | $2.00 | 120 min | 60 |
 
+## `/post-exploit`
+
+Post-exploitation workflow — privilege escalation, credential harvesting, persistence assessment, and pivot preparation. Uses LinPEAS/WinPEAS as primary enumeration with dynamic GTFOBins cross-referencing.
+
+```
+/post-exploit 10.0.0.5 os=linux access=ssh current-user=www-data depth=standard
+/post-exploit 10.0.0.10 os=windows access=winrm current-user=svc_web depth=thorough
+/post-exploit 192.168.1.50 os=linux access=shell depth=quick
+```
+
+**What it does:**
+
+1. **Local enumeration** — `quick`: minimal checks (id, sudo -l, SUID, whoami /priv); `standard+`: LinPEAS/WinPEAS comprehensive scan with output parsing guidance
+2. **Privilege escalation** — decision tree: sudo rules, GTFOBins (40+ binaries with dynamic cross-reference), kernel exploits (DirtyPipe, DirtyCow, PwnKit, OverlayFS), Potato attacks (GodPotato, PrintSpoofer, JuicyPotato), token manipulation, DLL hijacking, container escapes
+3. **Credential harvesting** — shadow hashes, SSH keys + agent hijacking, process memory, config files, browser credentials, LSASS/SAM/DPAPI, hash cracking with john
+4. **Persistence assessment** — cron, systemd, SSH authorized_keys, init scripts, registry Run keys, scheduled tasks, WMI subscriptions
+5. **Pivot preparation** — network mapping from compromised host, credential reuse testing, SSH key reuse
+
+**Depth presets:**
+
+| Depth | Tools | Cost | Time | Calls |
+|---|---|---|---|---|
+| `quick` | Manual checks only (decision tree inputs) + exploitation + credential search | $0.10 | 15 min | 10 |
+| `standard` | LinPEAS/WinPEAS + targeted exploitation + hash extraction + credential harvesting | $0.50 | 45 min | 25 |
+| `thorough` | Standard + kernel exploits + container escapes + token manipulation + persistence + pivot | $2.00 | 120 min | 60 |
+
 ---
 
 ## Chaining skills
@@ -344,9 +370,16 @@ During a pentest (/pentester)
   ├── /analyze-cve            if nuclei or semgrep finds a CVE dependency
   ├── /ssl-tls-audit          if TLS services are found — PCI DSS/NIST compliance audit
   ├── /network-assess         if internal network scope — segmentation, SNMP, broadcast protocols
+  ├── /post-exploit           initial access obtained — privesc, credential harvesting, pivot
   ├── /container-k8s-security if Docker/K8s infrastructure is discovered
   ├── /ai-redteam             if an LLM endpoint is discovered
   └── /supply-chain           if codebase scan — dependency + CI/CD security
+
+After initial access (/post-exploit)
+  ├── /lateral-movement       credentials + pivot opportunities — pass-the-hash, Kerberoasting
+  ├── /ad-assessment          domain credentials obtained — full AD audit
+  ├── /credential-audit       harvested hashes — crack and test credentials
+  └── /cloud-security         cloud credentials found — assess cloud posture
 
 During a codebase scan
   └── /analyze-cve            trace CVE reachability in code
