@@ -131,6 +131,27 @@ RUN ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/') \
     && chmod +x /usr/local/bin/dive \
     && rm /tmp/dive.tar.gz
 
+# Layer 12: cloud security — AWS CLI, Azure CLI, GCP CLI, Prowler, ScoutSuite
+# AWS CLI (via pip — kali apt awscli is often outdated)
+RUN pip3 install --no-cache-dir awscli --break-system-packages || true
+
+# Azure CLI
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates curl apt-transport-https lsb-release gnupg \
+    && curl -sL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /etc/apt/keyrings/microsoft.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/azure-cli/ $(lsb_release -cs) main" > /etc/apt/sources.list.d/azure-cli.list \
+    && apt-get update && apt-get install -y --no-install-recommends azure-cli \
+    && rm -rf /var/lib/apt/lists/* || true
+
+# GCP CLI
+RUN echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" > /etc/apt/sources.list.d/google-cloud-sdk.list \
+    && curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg \
+    && apt-get update && apt-get install -y --no-install-recommends google-cloud-cli \
+    && rm -rf /var/lib/apt/lists/* || true
+
+# Prowler (AWS/Azure/GCP security auditor) + ScoutSuite (multi-cloud auditor)
+RUN pip3 install --no-cache-dir prowler scoutsuite --break-system-packages || true
+
 # Decompress rockyou wordlist (needed by hydra, john, etc.)
 RUN gzip -d /usr/share/wordlists/rockyou.txt.gz 2>/dev/null || true
 

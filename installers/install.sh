@@ -79,6 +79,10 @@ mkdir -p "$HOME/.claude/skills/container-k8s-security"
 cp "$REPO_DIR/skills/container-k8s-security/SKILL.md" "$HOME/.claude/skills/container-k8s-security/SKILL.md"
 ok "/container-k8s-security skill installed"
 
+mkdir -p "$HOME/.claude/skills/cloud-security"
+cp "$REPO_DIR/skills/cloud-security/SKILL.md" "$HOME/.claude/skills/cloud-security/SKILL.md"
+ok "/cloud-security skill installed"
+
 # ── AI testing API keys (FuzzyAI + PyRIT) ────────────────────────────────────
 echo ""
 echo "AI testing tools (FuzzyAI + PyRIT) use LLM APIs for attacks and scoring."
@@ -177,5 +181,6 @@ echo "    /analyze-cve lodash 4.17.20 CVE-...      — CVE exploitability analys
 echo "    /threat-model                             — PASTA threat model"
 echo "    /aikido-triage findings.csv /path/to/app — triage Aikido CSV + HTML report"
 echo "    /ai-redteam https://ai-app.com/api/chat   — OWASP LLM Top 10 red-team assessment"
+echo "    /cloud-security my-aws-account provider=aws — cloud security posture assessment"
 echo "    /gh-export                               — export findings as GitHub issue blocks"
 echo ""
