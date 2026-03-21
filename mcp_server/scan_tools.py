@@ -121,6 +121,8 @@ async def _handle_pyrit(target, flags, options):
     attack = options.get("attack", "prompt_injection")
     timeout = options.get("timeout", 900)
 
+    body_key = options.get("body_key", "message")
+
     cmd_parts = [
         "pyrit-runner",
         "--target-url", target,
@@ -128,6 +130,7 @@ async def _handle_pyrit(target, flags, options):
         "--objective", f'"{objective}"',
         "--max-turns", max_turns,
         "--scorer", scorer,
+        "--body-key", body_key,
     ]
     if flags:
         cmd_parts += shlex.split(flags)
@@ -160,7 +163,12 @@ async def _handle_garak(target, flags, options):
 
     safe_target = shlex.quote(target)
     safe_probes = shlex.quote(probes)
-    cmd = f"garak --model_type {shlex.quote(generator)} --model_name {safe_target} --probes {safe_probes}"
+    # garak v0.13.1+ deprecated --model_type/--model_name; use --generator and --generator_option
+    cmd = (
+        f"garak --generator {shlex.quote(generator)}"
+        f" --generator_option api_base={safe_target}"
+        f" --probes {safe_probes}"
+    )
     if flags:
         cmd += f" {shlex.join(shlex.split(flags))}"
 

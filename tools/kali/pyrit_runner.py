@@ -47,6 +47,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--scorer", default="self_ask",
                    choices=["self_ask", "substring", "true_false"],
                    help="Scoring method for attack success (default: self_ask)")
+    p.add_argument("--body-key", default="message",
+                   help="JSON key for the prompt in HTTP requests (default: message)")
     return p
 
 
@@ -63,19 +65,18 @@ def _make_openai_target(target_url: str, model: str, api_key: str):
     )
 
 
-def _make_http_target(target_url: str):
+def _make_http_target(target_url: str, body_key: str = "message"):
     from pyrit.prompt_target import HTTPTarget
-    # Generic JSON body — adjust if the target uses a different schema
     http_req = (
         f"POST {target_url}\n"
         "Content-Type: application/json\n"
         "\n"
-        '{"message": "{{PROMPT}}"}'
+        '{' + f'"{body_key}": ' + '"{{PROMPT}}"}'
     )
     return HTTPTarget(http_request=http_req)
 
 
-def make_target(target_url: str, model: str):
+def make_target(target_url: str, model: str, body_key: str = "message"):
     """Build the best available PyRIT target for the given URL."""
     api_key = os.environ.get("OPENAI_API_KEY", "")
     # If an OpenAI key is present and the URL looks like an OpenAI-compatible API,
@@ -85,7 +86,7 @@ def make_target(target_url: str, model: str):
             return _make_openai_target(target_url, model, api_key)
         except Exception as exc:
             print(f"[!] OpenAIChatTarget failed ({exc}), falling back to HTTPTarget", file=sys.stderr)
-    return _make_http_target(target_url)
+    return _make_http_target(target_url, body_key)
 
 
 def make_attacker_target(model: str):
@@ -140,7 +141,7 @@ def make_scorer(scorer_type: str, model: str):
 
 async def run_prompt_injection(args: argparse.Namespace) -> None:
     from pyrit.orchestrator import PromptSendingOrchestrator
-    target = make_target(args.target_url, args.model)
+    target = make_target(args.target_url, args.model, args.body_key)
     scorer = make_scorer(args.scorer, args.model)
     orchestrator = PromptSendingOrchestrator(
         objective_target=target,
@@ -158,7 +159,7 @@ async def run_jailbreak(args: argparse.Namespace) -> None:
     try:
         from pyrit.orchestrator import RedTeamingOrchestrator
         attacker = make_attacker_target(args.model)
-        target   = make_target(args.target_url, args.model)
+        target   = make_target(args.target_url, args.model, args.body_key)
         scorer   = make_scorer(args.scorer, args.model)
         orchestrator = RedTeamingOrchestrator(
             attack_strategy=args.objective,
@@ -183,7 +184,7 @@ async def run_crescendo(args: argparse.Namespace) -> None:
     try:
         from pyrit.orchestrator import CrescendoOrchestrator
         attacker = make_attacker_target(args.model)
-        target   = make_target(args.target_url, args.model)
+        target   = make_target(args.target_url, args.model, args.body_key)
         scorer   = make_scorer(args.scorer, args.model)
         orchestrator = CrescendoOrchestrator(
             objective_target=target,
