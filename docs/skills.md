@@ -262,6 +262,41 @@ Comprehensive container and Kubernetes security assessment covering OWASP Kubern
 
 ---
 
+## `/cloud-security`
+
+Cloud security posture assessment for AWS, Azure, and GCP — IAM privilege escalation, public storage, serverless attack surface, database exposure, logging gaps, and compliance mapping.
+
+```
+/cloud-security my-aws-account provider=aws mode=authenticated depth=standard
+/cloud-security 10.0.0.5 provider=aws mode=external depth=quick
+/cloud-security my-project provider=gcp mode=authenticated depth=thorough
+```
+
+**What it does:**
+
+1. **External recon** — public bucket/blob scanning, IMDS probing (AWS/Azure/GCP metadata endpoints), nuclei cloud templates
+2. **IAM privilege escalation** — systematic testing of iam:PassRole+Lambda, iam:CreatePolicyVersion, iam:AttachUserPolicy, sts:AssumeRole chains, cross-account trust abuse (10 escalation vectors with severity matrix)
+3. **Storage deep-dive** — bucket policies, ACLs, versioning, encryption, cross-account access, pre-signed URL abuse, object-level ACL enumeration
+4. **Network security** — security groups/NSGs open to 0.0.0.0/0, critical port exposure
+5. **Serverless attack surface** — Lambda/Functions env var secrets, layer inspection, API Gateway auth bypass, Step Functions state injection
+6. **Database exposure** — RDS/DynamoDB/ElastiCache/DocumentDB/OpenSearch public access, encryption, snapshot sharing
+7. **Logging validation** — CloudTrail, VPC Flow Logs, GuardDuty, Security Hub, Config
+8. **Container registry security** — ECR/ACR/Artifact Registry scanning, cross-account pull, immutability
+9. **Cloud-specific attacks** — resource policy confusion, SSM/Secrets Manager enumeration, managed identity abuse, service account key audit
+10. **Automated scanning** — Prowler + ScoutSuite
+11. **Attack path mapping** — chains from public exposure to sensitive data access
+12. **Compliance mapping** — SOC 2, PCI DSS 4.0, HIPAA, CIS benchmarks
+
+**Depth presets:**
+
+| Depth | Tools | Cost | Time | Calls |
+|---|---|---|---|---|
+| `quick` | Public bucket scan + IMDS probe + nuclei cloud templates | $0.10 | 15 min | 10 |
+| `standard` | quick + IAM escalation + storage deep-dive + security groups | $0.50 | 45 min | 25 |
+| `thorough` | standard + Prowler/ScoutSuite + serverless + databases + logging + container registry + attack paths + compliance | $2.00 | 120 min | 60 |
+
+---
+
 ## `/ssl-tls-audit`
 
 Deep TLS/SSL configuration audit with compliance mapping to PCI DSS 4.0, NIST SP 800-52r2, and FedRAMP.
@@ -373,6 +408,7 @@ During a pentest (/pentester)
   ├── /credential-audit       weak auth found — brute-force, spraying, default credentials
   ├── /post-exploit           initial access obtained — privesc, credential harvesting, pivot
   ├── /container-k8s-security if Docker/K8s infrastructure is discovered
+  ├── /cloud-security         if AWS/Azure/GCP infrastructure is discovered
   └── /ai-redteam             if an LLM endpoint is discovered
 
 After initial access (/post-exploit)

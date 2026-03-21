@@ -18,6 +18,7 @@ You have 30 skills at your disposal. Use the right one based on the task:
 | Skill | Trigger | What it does |
 |-------|---------|--------------|
 | `/container-k8s-security` | User asks to assess containers or Kubernetes | Container escape, K8s RBAC, pod security, exposed API servers, etcd access, image vulnerabilities |
+| `/cloud-security` | User asks to assess cloud infrastructure (AWS/Azure/GCP) | IAM privilege escalation, public storage, serverless attack surface, database exposure, logging gaps, compliance mapping |
 
 ### Analysis & Reporting Skills
 
