@@ -47,8 +47,6 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--scorer", default="self_ask",
                    choices=["self_ask", "substring", "true_false"],
                    help="Scoring method for attack success (default: self_ask)")
-    p.add_argument("--body-key", default="message",
-                   help="JSON key for the prompt in HTTP requests (default: message)")
     return p
 
 
@@ -141,7 +139,7 @@ def make_scorer(scorer_type: str, model: str):
 
 async def run_prompt_injection(args: argparse.Namespace) -> None:
     from pyrit.orchestrator import PromptSendingOrchestrator
-    target = make_target(args.target_url, args.model, args.body_key)
+    target = make_target(args.target_url, args.model)
     scorer = make_scorer(args.scorer, args.model)
     orchestrator = PromptSendingOrchestrator(
         objective_target=target,
@@ -159,7 +157,7 @@ async def run_jailbreak(args: argparse.Namespace) -> None:
     try:
         from pyrit.orchestrator import RedTeamingOrchestrator
         attacker = make_attacker_target(args.model)
-        target   = make_target(args.target_url, args.model, args.body_key)
+        target   = make_target(args.target_url, args.model)
         scorer   = make_scorer(args.scorer, args.model)
         orchestrator = RedTeamingOrchestrator(
             attack_strategy=args.objective,
@@ -184,7 +182,7 @@ async def run_crescendo(args: argparse.Namespace) -> None:
     try:
         from pyrit.orchestrator import CrescendoOrchestrator
         attacker = make_attacker_target(args.model)
-        target   = make_target(args.target_url, args.model, args.body_key)
+        target   = make_target(args.target_url, args.model)
         scorer   = make_scorer(args.scorer, args.model)
         orchestrator = CrescendoOrchestrator(
             objective_target=target,
