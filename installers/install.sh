@@ -91,6 +91,10 @@ mkdir -p "$HOME/.claude/skills/email-security"
 cp "$REPO_DIR/skills/email-security/SKILL.md" "$HOME/.claude/skills/email-security/SKILL.md"
 ok "/email-security skill installed"
 
+mkdir -p "$HOME/.claude/skills/metasploit"
+cp "$REPO_DIR/skills/metasploit/SKILL.md" "$HOME/.claude/skills/metasploit/SKILL.md"
+ok "/metasploit skill installed"
+
 # ── AI testing API keys (FuzzyAI + PyRIT) ────────────────────────────────────
 echo ""
 echo "AI testing tools (FuzzyAI + PyRIT) use LLM APIs for attacks and scoring."
@@ -109,27 +113,27 @@ chmod 600 "$ENV_FILE"
 _ask_key() {
     local key="$1"
     local desc="$2"
+    local value=""
     local existing
-    existing=$(grep -E "^${key}=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2-)
+    existing=$(grep -E "^${key}=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2-) || true
     if [[ -n "$existing" ]]; then
         printf "  %s already set. New value (Enter to keep): " "$key"
     else
         printf "  %s — %s\n  Value (Enter to skip): " "$key" "$desc"
     fi
-    # Read silently so the key never echoes to the terminal
-    IFS= read -r -s value
+    # Read from /dev/tty so heredocs in the write path don't steal stdin.
+    # -s hides the key as it's typed.
+    IFS= read -r -s value </dev/tty || true
     echo ""
     if [[ -n "$value" ]]; then
-        # Use Python to safely write the key=value pair — avoids sed injection
-        # when the value contains shell metacharacters or regex special chars.
-        python3 - "$ENV_FILE" "$key" "$value" <<'PYEOF'
-import sys, pathlib
-env_file, key, value = pathlib.Path(sys.argv[1]), sys.argv[2], sys.argv[3]
-lines = env_file.read_text().splitlines() if env_file.exists() else []
-lines = [l for l in lines if not l.startswith(f"{key}=")]
-lines.append(f"{key}={value}")
-env_file.write_text("\n".join(lines) + "\n")
-PYEOF
+        # Write the key=value pair using Python to avoid sed injection
+        python3 -c "
+import pathlib, sys
+p = pathlib.Path(sys.argv[1])
+lines = [l for l in p.read_text().splitlines() if not l.startswith(sys.argv[2] + '=')]
+lines.append(sys.argv[2] + '=' + sys.argv[3])
+p.write_text('\n'.join(lines) + '\n')
+" "$ENV_FILE" "$key" "$value"
         ok "$key saved"
     elif [[ -n "$existing" ]]; then
         ok "$key unchanged"
@@ -174,18 +178,70 @@ ok "Hook scripts are executable"
 
 # ── Next steps ────────────────────────────────────────────────────────────────
 echo ""
-echo "  Done! Optional next steps:"
+echo "  Docker images"
+echo "  ─────────────"
 echo ""
-echo "  1. Pre-pull lightweight tool images (recommended, ~2 min):"
-echo "     In any Claude Code session, ask Claude to call the pull_images tool."
-echo "     Or manually:"
-echo "     docker pull instrumentisto/nmap projectdiscovery/naabu projectdiscovery/httpx \\"
-echo "                projectdiscovery/nuclei ghcr.io/ffuf/ffuf projectdiscovery/subfinder \\"
-echo "                semgrep/semgrep trufflesecurity/trufflehog ghcr.io/cyberark/fuzzyai"
+
+# Lightweight scanner images (pull)
+_SCANNER_IMAGES=(
+    "instrumentisto/nmap"
+    "projectdiscovery/naabu"
+    "projectdiscovery/httpx"
+    "projectdiscovery/nuclei"
+    "ghcr.io/ffuf/ffuf"
+    "projectdiscovery/subfinder"
+    "semgrep/semgrep"
+    "trufflesecurity/trufflehog"
+)
+printf "  Pull lightweight scanner images? (~2 min) [Y/n]: "
+read -r _pull_answer || true
+if [[ "${_pull_answer:-Y}" =~ ^[Yy]$ ]]; then
+    for img in "${_SCANNER_IMAGES[@]}"; do
+        if docker pull "$img" >/dev/null 2>&1; then
+            ok "Pulled $img"
+        else
+            warn "Failed to pull $img (will auto-pull on first use)"
+        fi
+    done
+else
+    warn "Scanner image pull skipped — images will auto-pull on first use"
+fi
+
 echo ""
-echo "  2. Build the Kali image (~10 min — required for kali_exec + run_pyrit):"
-echo "     docker build -t pentest-agent/kali-mcp $REPO_DIR/tools/kali/"
-echo "     (PyRIT is installed inside the image; API keys are forwarded at run time)"
+
+# Kali image (build)
+printf "  Build Kali image? (~10 min — required for most skills) [Y/n]: "
+read -r _kali_answer || true
+if [[ "${_kali_answer:-Y}" =~ ^[Yy]$ ]]; then
+    echo "  Building pentest-agent/kali-mcp (this may take a while)..."
+    if docker build -t pentest-agent/kali-mcp "$REPO_DIR/tools/kali/" 2>&1 | tail -5; then
+        ok "Kali image built: pentest-agent/kali-mcp"
+    else
+        warn "Kali build failed — run manually: docker build -t pentest-agent/kali-mcp $REPO_DIR/tools/kali/"
+    fi
+else
+    warn "Kali build skipped — run later: docker build -t pentest-agent/kali-mcp $REPO_DIR/tools/kali/"
+fi
+
+echo ""
+
+# Metasploit image (build)
+printf "  Build Metasploit image? (~5 min — required for /metasploit skill) [Y/n]: "
+read -r _msf_answer || true
+if [[ "${_msf_answer:-Y}" =~ ^[Yy]$ ]]; then
+    echo "  Building pentest-agent/metasploit..."
+    if docker build -t pentest-agent/metasploit "$REPO_DIR/tools/metasploit/" 2>&1 | tail -5; then
+        ok "Metasploit image built: pentest-agent/metasploit"
+    else
+        warn "Metasploit build failed — run manually: docker build -t pentest-agent/metasploit $REPO_DIR/tools/metasploit/"
+    fi
+else
+    warn "Metasploit build skipped — run later: docker build -t pentest-agent/metasploit $REPO_DIR/tools/metasploit/"
+fi
+
+# ── Done ──────────────────────────────────────────────────────────────────
+echo ""
+echo "  Install complete!"
 echo ""
 echo "  Available commands:"
 echo "    /pentester scan https://target.com       — full pentest"
@@ -196,5 +252,10 @@ echo "    /ai-redteam https://ai-app.com/api/chat   — OWASP LLM Top 10 red-tea
 echo "    /cloud-security my-aws-account provider=aws — cloud security posture assessment"
 echo "    /ad-assessment 10.0.0.1 domain=CORP.LOCAL  — Active Directory security audit"
 echo "    /email-security example.com              — email SPF/DKIM/DMARC audit"
+echo "    /metasploit 10.0.0.5 cve=CVE-2017-0144   — Metasploit exploit validation"
 echo "    /gh-export                               — export findings as GitHub issue blocks"
+echo ""
+echo "  To rebuild images after adding new skills:"
+echo "    docker build -t pentest-agent/kali-mcp $REPO_DIR/tools/kali/"
+echo "    docker build -t pentest-agent/metasploit $REPO_DIR/tools/metasploit/"
 echo ""
