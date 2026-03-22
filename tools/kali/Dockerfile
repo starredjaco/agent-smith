@@ -57,10 +57,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     theharvester nfs-common lbd \
     && rm -rf /var/lib/apt/lists/*
 
-# Layer 10: network utilities + wordlists + document tools + RDP
+# Layer 10: network utilities + wordlists + document tools + RDP + cross-compilation
+# gcc-mingw-w64 — cross-compile C exploits to Windows EXE/DLL from Kali
 RUN apt-get update && apt-get install -y --no-install-recommends \
     socat proxychains4 curl wget \
     seclists wordlists \
+    gcc-mingw-w64 \
     poppler-utils freerdp3-x11 \
     && rm -rf /var/lib/apt/lists/*
 
