@@ -22,6 +22,8 @@ You have 30 skills at your disposal. Use the right one based on the task:
 | `/ad-assessment` | User asks to audit Active Directory | Domain enumeration, ADCS (ESC1-ESC8), delegation abuse, ACL analysis, GPO security, BloodHound attack paths, trust exploitation |
 | `/email-security` | User asks to audit email security for a domain | SPF, DKIM, DMARC, open relay, spoofing resilience, MTA-STS, SMTP user enumeration |
 | `/metasploit` | CVE confirmed exploitable — validate with Metasploit | Exploit validation, payload generation, post-exploitation (separate Docker container) |
+| `/reverse-shell` | Exploit needs a callback — generate payload and listener | Platform-specific reverse shells (bash, python, php, powershell, msfvenom) + Kali listener setup |
+| `/web-exploit` | Injection point or logic flaw found — deep exploitation | SQLi (blind/OOB), XSS, SSRF, parameter tampering, file upload bypass, deserialization, command injection |
 
 ### Analysis & Reporting Skills
 
@@ -94,7 +96,7 @@ Run any security scanner. `tool` selects the scanner, `target` is the URL/host/p
 | metasploit | host/IP | module=, payload=, rport=, lhost=, lport=4444 |
 
 ### `kali(command, timeout)`
-Run any command in the Kali container (auto-starts if needed). Hundreds of tools: nikto, sqlmap, gobuster, hydra, testssl, enum4linux-ng, wapiti, etc.
+Run any command in the Kali container (auto-starts if needed). Hundreds of tools: nikto, sqlmap, gobuster, hydra, testssl, enum4linux-ng, wapiti, searchsploit, etc.
 
 ### `http(action, url, method, headers, body, options)`
 Raw HTTP requests and PoC saving.
