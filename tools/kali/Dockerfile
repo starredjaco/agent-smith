@@ -14,10 +14,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     dnsrecon dnsenum fierce dmitry dnstwist dnsmap whois bind9-dnsutils \
     && rm -rf /var/lib/apt/lists/*
 
-# Layer 3: web scanning
+# Layer 3: web scanning + exploit-db
 RUN apt-get update && apt-get install -y --no-install-recommends \
     nikto sqlmap whatweb wafw00f wapiti commix xsser davtest skipfish \
-    zaproxy \
+    zaproxy exploitdb \
     && rm -rf /var/lib/apt/lists/*
 
 # Layer 4: web fuzzing / discovery

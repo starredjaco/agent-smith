@@ -91,7 +91,7 @@ Run any security scanner. `tool` selects the scanner, `target` is the URL/host/p
 | metasploit | host/IP | module=, payload=, rport=, lhost=, lport=4444 |
 
 ### `kali(command, timeout)`
-Run any command in the Kali container (auto-starts if needed). Hundreds of tools: nikto, sqlmap, gobuster, hydra, testssl, enum4linux-ng, wapiti, etc.
+Run any command in the Kali container (auto-starts if needed). Hundreds of tools: nikto, sqlmap, gobuster, hydra, testssl, enum4linux-ng, wapiti, searchsploit, etc.
 
 ### `http(action, url, method, headers, body, options)`
 Raw HTTP requests and PoC saving.
