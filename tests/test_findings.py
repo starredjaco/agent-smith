@@ -82,7 +82,7 @@ async def test_update_finding_attaches_gh_issue(findings_file):
     entry = await core.findings.add_finding(
         title="SQLi", severity="high", target="t", description="d", evidence="e"
     )
-    result = await core.findings.update_finding(entry["id"], "## GitHub Issue\nFix this.")
+    result = await core.findings.update_finding(entry["id"], gh_issue="## GitHub Issue\nFix this.")
     assert result is True
     data = json.loads(findings_file.read_text())
     assert data["findings"][0]["gh_issue"] == "## GitHub Issue\nFix this."
@@ -90,7 +90,40 @@ async def test_update_finding_attaches_gh_issue(findings_file):
 
 @pytest.mark.asyncio
 async def test_update_finding_returns_false_for_missing_id(findings_file):
-    result = await core.findings.update_finding("nonexistent-uuid", "issue")
+    result = await core.findings.update_finding("nonexistent-uuid", gh_issue="issue")
+    assert result is False
+
+
+@pytest.mark.asyncio
+async def test_add_finding_with_reproduction(findings_file):
+    repro = {"type": "http", "command": "curl http://target/?q=1' OR 1=1--", "expected": "returns all rows"}
+    entry = await core.findings.add_finding(
+        title="SQLi", severity="critical", target="t", description="d", evidence="e",
+        reproduction=repro,
+    )
+    assert entry["reproduction"] == repro
+    data = json.loads(findings_file.read_text())
+    assert data["findings"][0]["reproduction"]["command"] == repro["command"]
+
+
+@pytest.mark.asyncio
+async def test_update_finding_remediation(findings_file):
+    entry = await core.findings.add_finding(
+        title="XSS", severity="high", target="t", description="d", evidence="e"
+    )
+    remediation = {"summary": "Add output encoding", "effort": "low", "fix_type": "code_patch"}
+    result = await core.findings.update_finding(entry["id"], remediation=remediation)
+    assert result is True
+    data = json.loads(findings_file.read_text())
+    assert data["findings"][0]["remediation"]["summary"] == "Add output encoding"
+
+
+@pytest.mark.asyncio
+async def test_update_finding_no_valid_fields(findings_file):
+    entry = await core.findings.add_finding(
+        title="T", severity="low", target="t", description="d", evidence="e"
+    )
+    result = await core.findings.update_finding(entry["id"], invalid_field="nope")
     assert result is False
 
 

@@ -184,6 +184,19 @@ def test_api_patch_finding_invalid_json():
     assert response.status_code == 400
 
 
+def test_api_clear_resets_findings(tmp_path, monkeypatch):
+    from core import findings as findings_mod
+    findings_file = tmp_path / "findings.json"
+    findings_file.write_text(json.dumps({"meta": {}, "findings": [{"id": "1"}], "diagrams": [{"id": "2"}]}))
+    monkeypatch.setattr(findings_mod, "FINDINGS_FILE", findings_file)
+    response = client.delete("/api/clear")
+    assert response.status_code == 200
+    assert response.json()["ok"] is True
+    data = json.loads(findings_file.read_text())
+    assert data["findings"] == []
+    assert data["diagrams"] == []
+
+
 # ── lifecycle helpers ─────────────────────────────────────────────────────────
 
 def test_read_pid_returns_none_for_missing_file(tmp_path, monkeypatch):

@@ -4,6 +4,38 @@ Skills are slash commands that expand into detailed instructions for Claude. The
 
 ---
 
+## `/codebase`
+
+White-box source code security review structured around OWASP ASVS 5.0 (427 verification requirements). Reads and understands application source code to build a security knowledge base that enriches all downstream skills.
+
+```
+/codebase /path/to/project depth=standard
+/codebase /path/to/project depth=thorough focus=auth
+/codebase /path/to/project depth=quick
+```
+
+**What it does:**
+
+1. **Orientation** — identify tech stack, framework, dependencies, project structure, configuration
+2. **Attack surface mapping** — extract ALL route/endpoint definitions from source code with auth/middleware annotations
+3. **Auth architecture** — map authentication mechanism, session config, authorization model, token handling (ASVS V6-V10)
+4. **Automated scanning** — semgrep SAST + trufflehog secret scanning in parallel
+5. **Dangerous pattern analysis** — injection, output encoding, deserialization, input validation, file handling, business logic (ASVS V1-V5)
+6. **Infrastructure review** — cryptography, TLS config, secret management, data protection, error handling, IaC (ASVS V11-V16)
+7. **Security profile output** — structured summary for downstream skills + ASVS coverage map
+
+**Depth presets:**
+
+| Depth | What runs | Cost | Time | Calls |
+|---|---|---|---|---|
+| `quick` | Orientation + automated scanning (semgrep + trufflehog) | $0.10 | 15 min | 10 |
+| `standard` | quick + route mapping + auth review + dangerous patterns | $0.50 | 45 min | 30 |
+| `thorough` | full ASVS-mapped review + IaC + crypto + source-to-sink tracing | $2.00 | 120 min | 60 |
+
+**Chains into:** `/threat-model` (real architecture from code), `/pentester` (targeted scanning of discovered endpoints), `/web-exploit` (source-to-sink context), `/cloud-security` (IaC verification), `/analyze-cve` (full code context for CVE tracing).
+
+---
+
 ## `/pentester`
 
 Full penetration test — recon through exploitation through reporting.
@@ -111,9 +143,38 @@ Triage every finding in an Aikido SAST/SCA CSV export against the actual codebas
 
 ---
 
+## `/remediate`
+
+Generates specific, implementable fixes for every finding in `findings.json`. Produces code patches (unified diff), configuration changes, dependency updates, and IaC fixes — not generic advice but actual before/after code.
+
+```
+/remediate depth=thorough
+/remediate finding-id-here
+```
+
+**What it does:**
+
+1. Reads all findings from the dashboard API
+2. For each finding (critical/high first), generates a specific fix based on the vulnerability type and framework
+3. PATCHes each finding with a `remediation` object containing: summary, diff, before/after code, effort level, breaking change flag, OWASP references, and verification step
+4. Uses the finding's `reproduction` command as the regression test: "run this after the fix — it should now fail"
+
+**Dashboard integration:** Each finding with remediation shows a "Fix" button that expands to show the diff, effort level, and verification steps.
+
+**Export integration:** `/gh-export` includes a `## Remediation` section in each GitHub issue when remediation data is present.
+
+**Depth presets:**
+
+| Depth | What runs | Cost | Time | Calls |
+|---|---|---|---|---|
+| `quick` | Summary fix + effort level per finding | $0.10 | 10 min | 10 |
+| `thorough` | Full diff + before/after + references + verification per finding | $0.50 | 30 min | 30 |
+
+---
+
 ## `/gh-export`
 
-Formats all confirmed findings from `findings.json` as copy-pasteable GitHub issue blocks, following the AppSec reporting guide template. After generating each block, patches the finding in `findings.json` with the formatted text so the dashboard can surface it.
+Formats all confirmed findings from `findings.json` as copy-pasteable GitHub issue blocks, following the AppSec reporting guide template. Now includes a `## Remediation` section with code diffs and verification steps when `/remediate` has run. After generating each block, patches the finding in `findings.json` with the formatted text so the dashboard can surface it.
 
 ```
 /gh-export
@@ -518,6 +579,7 @@ Skills are designed to be chained automatically during an engagement:
 
 ```
 Before a pentest
+  ├── /codebase               if source code available — ASVS 5.0 white-box review
   ├── /osint                  passive recon — subdomains, emails, tech stack, cloud storage
   └── /threat-model           identify high-risk areas to focus the scan
 
@@ -549,8 +611,9 @@ For AI/LLM targets (instead of /pentester)
 
 After a pentest
   ├── /threat-model           STRIDE analysis based on discovered architecture
+  ├── /remediate              generate specific fixes for every finding
   ├── /aikido-triage          if an Aikido CSV export is available
-  └── /gh-export              format all findings as GitHub issues
+  └── /gh-export              format findings as GitHub issues (includes remediation)
 ```
 
 Claude chains these automatically based on context — you can also invoke them manually at any point.
