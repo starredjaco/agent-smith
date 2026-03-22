@@ -134,6 +134,47 @@ async def test_ensure_running_docker_run_fails():
     assert "port already in use" in msg
 
 
+@pytest.mark.asyncio
+async def test_ensure_running_success_health_ok():
+    """Docker run succeeds, health poll returns 200 on first try."""
+    run_proc = _make_proc(returncode=0)
+
+    mock_resp = AsyncMock()
+    mock_resp.status = 200
+    mock_resp.__aenter__ = AsyncMock(return_value=mock_resp)
+    mock_resp.__aexit__ = AsyncMock(return_value=False)
+
+    mock_session = MagicMock()
+    mock_session.get = MagicMock(return_value=mock_resp)
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=False)
+
+    with patch("tools.metasploit_runner.container_running", new_callable=AsyncMock, return_value=False), \
+         patch("tools.metasploit_runner.image_exists", new_callable=AsyncMock, return_value=True), \
+         patch("tools.metasploit_runner.asyncio.create_subprocess_exec", return_value=run_proc), \
+         patch("aiohttp.ClientSession", return_value=mock_session):
+        ok, msg = await ensure_running()
+    assert ok is True
+    assert msg == "started"
+
+
+@pytest.mark.asyncio
+async def test_ensure_running_health_never_responds():
+    """Docker run succeeds but health poll always fails — times out."""
+    run_proc = _make_proc(returncode=0)
+
+    with patch("tools.metasploit_runner.container_running", new_callable=AsyncMock, return_value=False), \
+         patch("tools.metasploit_runner.image_exists", new_callable=AsyncMock, return_value=True), \
+         patch("tools.metasploit_runner.asyncio.create_subprocess_exec", return_value=run_proc), \
+         patch("aiohttp.ClientSession", side_effect=ConnectionError("refused")), \
+         patch("tools.metasploit_runner.asyncio.sleep", new_callable=AsyncMock):
+        # Monkey-patch the range to only try once instead of 60 times
+        with patch("builtins.range", return_value=range(1)):
+            ok, msg = await ensure_running()
+    assert ok is False
+    assert "never responded" in msg
+
+
 # ---------------------------------------------------------------------------
 # exec_command tests
 # ---------------------------------------------------------------------------
