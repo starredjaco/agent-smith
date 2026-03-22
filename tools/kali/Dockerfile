@@ -62,7 +62,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN apt-get update && apt-get install -y --no-install-recommends \
     socat proxychains4 curl wget \
     seclists wordlists \
-    gcc-mingw-w64 \
+    gcc-mingw-w64 unrar p7zip-full \
     poppler-utils freerdp3-x11 \
     && rm -rf /var/lib/apt/lists/*
 
