@@ -101,28 +101,27 @@ chmod 600 "$ENV_FILE"
 _ask_key() {
     local key="$1"
     local desc="$2"
+    local value=""
     local existing
-    existing=$(grep -E "^${key}=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2-)
+    existing=$(grep -E "^${key}=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2-) || true
     if [[ -n "$existing" ]]; then
         printf "  %s already set. New value (Enter to keep): " "$key"
     else
         printf "  %s — %s\n  Value (Enter to skip): " "$key" "$desc"
     fi
-    # Read silently so the key never echoes to the terminal
-    # || true prevents set -e from exiting on empty input (read returns 1 on EOF/empty with -s)
-    IFS= read -r -s value || true
+    # Read from /dev/tty so heredocs in the write path don't steal stdin.
+    # -s hides the key as it's typed.
+    IFS= read -r -s value </dev/tty || true
     echo ""
     if [[ -n "$value" ]]; then
-        # Use Python to safely write the key=value pair — avoids sed injection
-        # when the value contains shell metacharacters or regex special chars.
-        python3 - "$ENV_FILE" "$key" "$value" <<'PYEOF'
-import sys, pathlib
-env_file, key, value = pathlib.Path(sys.argv[1]), sys.argv[2], sys.argv[3]
-lines = env_file.read_text().splitlines() if env_file.exists() else []
-lines = [l for l in lines if not l.startswith(f"{key}=")]
-lines.append(f"{key}={value}")
-env_file.write_text("\n".join(lines) + "\n")
-PYEOF
+        # Write the key=value pair using Python to avoid sed injection
+        python3 -c "
+import pathlib, sys
+p = pathlib.Path(sys.argv[1])
+lines = [l for l in p.read_text().splitlines() if not l.startswith(sys.argv[2] + '=')]
+lines.append(sys.argv[2] + '=' + sys.argv[3])
+p.write_text('\n'.join(lines) + '\n')
+" "$ENV_FILE" "$key" "$value"
         ok "$key saved"
     elif [[ -n "$existing" ]]; then
         ok "$key unchanged"
