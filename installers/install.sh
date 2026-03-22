@@ -87,6 +87,10 @@ mkdir -p "$HOME/.claude/skills/reverse-shell"
 cp "$REPO_DIR/skills/reverse-shell/SKILL.md" "$HOME/.claude/skills/reverse-shell/SKILL.md"
 ok "/reverse-shell skill installed"
 
+mkdir -p "$HOME/.claude/skills/web-exploit"
+cp "$REPO_DIR/skills/web-exploit/SKILL.md" "$HOME/.claude/skills/web-exploit/SKILL.md"
+ok "/web-exploit skill installed"
+
 # ── AI testing API keys (FuzzyAI + PyRIT) ────────────────────────────────────
 echo ""
 echo "AI testing tools (FuzzyAI + PyRIT) use LLM APIs for attacks and scoring."

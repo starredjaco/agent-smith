@@ -20,6 +20,7 @@ You have 30 skills at your disposal. Use the right one based on the task:
 | `/container-k8s-security` | User asks to assess containers or Kubernetes | Container escape, K8s RBAC, pod security, exposed API servers, etcd access, image vulnerabilities |
 | `/metasploit` | CVE confirmed exploitable — validate with Metasploit | Exploit validation, payload generation, post-exploitation (separate Docker container) |
 | `/reverse-shell` | Exploit needs a callback — generate payload and listener | Platform-specific reverse shells (bash, python, php, powershell, msfvenom) + Kali listener setup |
+| `/web-exploit` | Injection point or logic flaw found — deep exploitation | SQLi (blind/OOB), XSS, SSRF, parameter tampering, file upload bypass, deserialization, command injection |
 
 ### Analysis & Reporting Skills
 

@@ -423,6 +423,7 @@ Before a pentest
 
 During a pentest (/pentester)
   ├── /analyze-cve            if nuclei or semgrep finds a CVE dependency
+  ├── /web-exploit            injection point or logic flaw found — deep SQLi, XSS, SSRF, parameter tampering
   ├── /metasploit             if exploitable CVE confirmed — validate with Metasploit modules
   ├── /reverse-shell          exploit needs a callback — payload generation + listener setup
   ├── /ssl-tls-audit          if TLS services are found — PCI DSS/NIST compliance audit
