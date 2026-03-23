@@ -91,7 +91,7 @@ def _render_mermaid_svgs(content: str) -> dict[str, str]:
     import subprocess
     import tempfile
 
-    content_hash = hashlib.md5(content.encode()).hexdigest()
+    content_hash = hashlib.sha256(content.encode()).hexdigest()
     if content_hash in _svg_cache:
         return _svg_cache[content_hash]
 
