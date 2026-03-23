@@ -132,7 +132,14 @@ async def dashboard_ui() -> FileResponse:
 
 @app.get("/api/findings")
 async def api_findings() -> JSONResponse:
-    return JSONResponse(_read_json(_FINDINGS_FILE))
+    data = _read_json(_FINDINGS_FILE)
+    # Render diagram SVGs server-side so topology tab matches threat model theme
+    for d in data.get("diagrams", []):
+        if d.get("mermaid") and "svg" not in d:
+            wrapped = f"```mermaid\n{d['mermaid']}\n```"
+            svgs = _render_mermaid_svgs(wrapped)
+            d["svg"] = svgs.get("0", "")
+    return JSONResponse(data)
 
 
 @app.get("/api/session")

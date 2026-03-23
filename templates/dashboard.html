@@ -694,9 +694,6 @@
       const card = document.createElement('div');
       card.className = 'diagram-card';
       card.dataset.diagId = d.id;
-      const mermaidEl = document.createElement('div');
-      mermaidEl.className = 'mermaid';
-      mermaidEl.textContent = d.mermaid;
       card.innerHTML = `<h3>${esc(d.title)}</h3><span class="ts">${new Date(d.timestamp).toLocaleTimeString()}</span>`;
 
       // Wrap in zoomable container
@@ -704,7 +701,29 @@
       zoomWrap.className = 'diagram-zoom-wrap';
       const zoomInner = document.createElement('div');
       zoomInner.className = 'diagram-zoom-inner';
-      zoomInner.appendChild(mermaidEl);
+
+      if (d.svg) {
+        // Use server-rendered SVG (matches threat model theme)
+        zoomInner.innerHTML = d.svg;
+        const svgEl = zoomInner.querySelector('svg');
+        if (svgEl) { svgEl.style.maxWidth = '100%'; svgEl.style.height = 'auto'; }
+      } else {
+        // Fallback to client-side rendering
+        const mermaidEl = document.createElement('div');
+        mermaidEl.className = 'mermaid';
+        mermaidEl.textContent = d.mermaid;
+        zoomInner.appendChild(mermaidEl);
+        try {
+          await mermaid.run({ nodes: [mermaidEl] });
+        } catch (err) {
+          mermaidEl.innerHTML = `<div style="color:#ff4d4f;font-size:.8rem;margin-bottom:.5rem">
+            ⚠ Mermaid render error: ${esc(String(err?.message||err))}</div>
+            <pre style="background:#010409;color:#7ee787;padding:.6rem;border-radius:4px;
+                        font-size:.75rem;white-space:pre-wrap;word-break:break-all;
+                        border:1px solid #21262d;max-height:400px;overflow-y:auto">${esc(d.mermaid)}</pre>`;
+        }
+      }
+
       zoomWrap.appendChild(zoomInner);
       zoomWrap.insertAdjacentHTML('beforeend', `<div class="diagram-zoom-controls">
         <button onclick="diagramZoom(this,1.3)" title="Zoom in">+</button>
@@ -714,15 +733,6 @@
       initDiagramPanZoom(zoomWrap);
       card.appendChild(zoomWrap);
       wrap.appendChild(card);
-      try {
-        await mermaid.run({ nodes: [mermaidEl] });
-      } catch (err) {
-        mermaidEl.innerHTML = `<div style="color:#ff4d4f;font-size:.8rem;margin-bottom:.5rem">
-          ⚠ Mermaid render error: ${esc(String(err?.message||err))}</div>
-          <pre style="background:#010409;color:#7ee787;padding:.6rem;border-radius:4px;
-                      font-size:.75rem;white-space:pre-wrap;word-break:break-all;
-                      border:1px solid #21262d;max-height:400px;overflow-y:auto">${esc(d.mermaid)}</pre>`;
-      }
     }
   }
 
