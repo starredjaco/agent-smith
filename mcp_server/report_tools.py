@@ -127,17 +127,27 @@ async def _do_coverage(data):
         )
 
     elif cov_type == "tested":
-        ok = await cov.update_cell(
+        result = await cov.update_cell(
             cell_id=data.get("cell_id", ""),
             status=data.get("status", ""),
             notes=data.get("notes", ""),
             finding_id=data.get("finding_id"),
+            tested_by=data.get("tested_by", ""),
         )
-        return f"Cell updated: {data.get('cell_id')}" if ok else f"Cell not found: {data.get('cell_id')}"
+        if result is False:
+            return f"Cell not found: {data.get('cell_id')}"
+        if isinstance(result, str):
+            # Integrity warning — cell was updated but with a warning
+            return f"Cell updated: {data.get('cell_id')} — {result}"
+        return f"Cell updated: {data.get('cell_id')}"
 
     elif cov_type == "bulk_tested":
-        count = await cov.bulk_update(data.get("updates", []))
-        return f"Bulk update: {count} cell(s) updated"
+        result = await cov.bulk_update(data.get("updates", []))
+        msg = f"Bulk update: {result['updated']} cell(s) updated"
+        if result["warnings"]:
+            msg += f"\n\nINTEGRITY WARNINGS ({len(result['warnings'])}):\n"
+            msg += "\n".join(f"  - {w}" for w in result["warnings"])
+        return msg
 
     elif cov_type == "reset":
         await cov.reset()

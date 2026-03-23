@@ -137,8 +137,10 @@ async def test_update_cell_marks_tested(coverage_file):
     )
     data = json.loads(coverage_file.read_text())
     cell = data["matrix"][0]
+    # Must pass through in_progress first (integrity rule)
+    await core.coverage.update_cell(cell["id"], "in_progress", notes="Starting test")
     ok = await core.coverage.update_cell(
-        cell["id"], "tested_clean", notes="No injection found"
+        cell["id"], "tested_clean", notes="No injection found", tested_by="sqlmap"
     )
     assert ok is True
     data = json.loads(coverage_file.read_text())
@@ -146,6 +148,27 @@ async def test_update_cell_marks_tested(coverage_file):
     assert updated["status"] == "tested_clean"
     assert updated["notes"] == "No injection found"
     assert updated["tested_at"] is not None
+    assert updated["tested_by"] == "sqlmap"
+
+
+@pytest.mark.asyncio
+async def test_update_cell_warns_on_skip_in_progress(coverage_file):
+    """Skipping in_progress returns an integrity warning string."""
+    await core.coverage.add_endpoint(
+        path="/test2", method="GET",
+        params=[{"name": "id", "type": "path", "value_hint": "integer"}],
+    )
+    data = json.loads(coverage_file.read_text())
+    cell = data["matrix"][0]
+    result = await core.coverage.update_cell(
+        cell["id"], "tested_clean", notes="No injection found"
+    )
+    assert isinstance(result, str)
+    assert "INTEGRITY WARNING" in result
+    # Cell is still updated (warning, not a blocker)
+    data = json.loads(coverage_file.read_text())
+    updated = next(c for c in data["matrix"] if c["id"] == cell["id"])
+    assert updated["status"] == "tested_clean"
 
 
 @pytest.mark.asyncio
@@ -156,9 +179,11 @@ async def test_update_cell_vulnerable_with_finding(coverage_file):
     )
     data = json.loads(coverage_file.read_text())
     sqli_cell = next(c for c in data["matrix"] if c["injection_type"] == "sqli" and c["param"] == "user")
+    # Proper flow: pending -> in_progress -> vulnerable
+    await core.coverage.update_cell(sqli_cell["id"], "in_progress", notes="Testing SQLi")
     ok = await core.coverage.update_cell(
         sqli_cell["id"], "vulnerable",
-        notes="Blind SQLi confirmed", finding_id="finding-123"
+        notes="Blind SQLi confirmed", finding_id="finding-123", tested_by="sqlmap"
     )
     assert ok is True
     data = json.loads(coverage_file.read_text())
@@ -192,14 +217,71 @@ async def test_bulk_update_multiple_cells(coverage_file):
         path="/api", method="GET", params=[],
     )
     data = json.loads(coverage_file.read_text())
+    # Mark in_progress first (proper flow)
+    in_progress_updates = [
+        {"cell_id": c["id"], "status": "in_progress", "notes": "Starting"}
+        for c in data["matrix"][:3]
+    ]
+    await core.coverage.bulk_update(in_progress_updates)
+    # Now mark tested_clean
+    updates = [
+        {"cell_id": c["id"], "status": "tested_clean", "notes": "OK", "tested_by": "http_request"}
+        for c in data["matrix"][:3]
+    ]
+    result = await core.coverage.bulk_update(updates)
+    assert result["updated"] == 3
+    assert result["warnings"] == []
+    data = json.loads(coverage_file.read_text())
+    assert data["meta"]["tested"] >= 3
+
+
+@pytest.mark.asyncio
+async def test_bulk_update_warns_on_skip_in_progress(coverage_file):
+    """Bulk update returns warnings when cells skip in_progress."""
+    await core.coverage.add_endpoint(
+        path="/api2", method="GET", params=[],
+    )
+    data = json.loads(coverage_file.read_text())
     updates = [
         {"cell_id": c["id"], "status": "tested_clean", "notes": "OK"}
         for c in data["matrix"][:3]
     ]
-    count = await core.coverage.bulk_update(updates)
-    assert count == 3
+    result = await core.coverage.bulk_update(updates)
+    assert result["updated"] == 3
+    assert len(result["warnings"]) == 3
+
+
+@pytest.mark.asyncio
+async def test_na_warns_on_bypass_required_type(coverage_file):
+    """Marking XXE or SQLi as N/A without bypass justification triggers warning."""
+    await core.coverage.add_endpoint(
+        path="/form", method="POST",
+        params=[{"name": "data", "type": "body_form", "value_hint": ""}],
+    )
     data = json.loads(coverage_file.read_text())
-    assert data["meta"]["tested"] >= 3
+    xxe_cell = next(c for c in data["matrix"] if c["injection_type"] == "xxe")
+    result = await core.coverage.update_cell(
+        xxe_cell["id"], "not_applicable", notes="Not XML"
+    )
+    assert isinstance(result, str)
+    assert "INTEGRITY WARNING" in result
+    assert "Content-Type switching" in result
+
+
+@pytest.mark.asyncio
+async def test_na_no_warning_with_proper_justification(coverage_file):
+    """N/A with proper justification for bypass-required types returns True."""
+    await core.coverage.add_endpoint(
+        path="/form2", method="POST",
+        params=[{"name": "data", "type": "body_form", "value_hint": ""}],
+    )
+    data = json.loads(coverage_file.read_text())
+    xxe_cell = next(c for c in data["matrix"] if c["injection_type"] == "xxe")
+    result = await core.coverage.update_cell(
+        xxe_cell["id"], "not_applicable",
+        notes="Tested Content-Type switching to application/xml — server returns 415 Unsupported Media Type"
+    )
+    assert result is True
 
 
 # ---------------------------------------------------------------------------

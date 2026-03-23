@@ -14,8 +14,17 @@ Schema
                  "tested": 0, "vulnerable": 0, "not_applicable": 0, "skipped": 0 },
   "endpoints": [ { id, path, method, params, discovered_by, discovered_at, auth_context } ],
   "matrix":    [ { id, endpoint_id, param, param_type, injection_type,
-                   status, notes, finding_id, tested_at } ]
+                   status, notes, finding_id, tested_at, tested_by } ]
 }
+
+Integrity rules
+---------------
+1. Cells that resolve to tested_clean/vulnerable MUST pass through in_progress first.
+   Direct pending → tested_clean is rejected (returns a warning string instead of True).
+2. Every cell tracks `tested_by` — the tool or method used for testing.
+3. Marking a cell `not_applicable` for injection types with known bypass techniques
+   (xxe, sqli, xss, ssti) requires the notes to mention what bypass was ruled out.
+   An empty or generic note triggers a warning.
 
 Used by mcp_server/report_tools.py (coverage action) and session_tools.py.
 """
@@ -28,9 +37,22 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-COVERAGE_FILE = Path(__file__).parent.parent / "coverage_matrix.json"
+COVERAGE_FILE = (Path(__file__).parent.parent / "coverage_matrix.json").resolve()
 
 _lock = asyncio.Lock()
+
+
+# ---------------------------------------------------------------------------
+# Injection types that have known bypass techniques — marking these N/A
+# requires the notes to explain WHY the bypass doesn't apply.
+# ---------------------------------------------------------------------------
+
+_BYPASS_REQUIRED_TYPES: dict[str, str] = {
+    "xxe":  "Content-Type switching to application/xml",
+    "sqli": "blind boolean/time-based, second-order, or encoding bypass",
+    "xss":  "encoding bypass, DOM sinks, or stored via other endpoint",
+    "ssti": "alternative template syntax (${}, <%%>, #{}, *{})",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -179,6 +201,7 @@ async def add_endpoint(
                     "notes": "",
                     "finding_id": None,
                     "tested_at": None,
+                    "tested_by": "",
                 }
                 data["matrix"].append(cell)
                 new_cells += 1
@@ -195,6 +218,7 @@ async def add_endpoint(
                 "notes": "",
                 "finding_id": None,
                 "tested_at": None,
+                "tested_by": "",
             }
             data["matrix"].append(cell)
             new_cells += 1
@@ -210,51 +234,114 @@ async def update_cell(
     status: str,
     notes: str = "",
     finding_id: str | None = None,
-) -> bool:
-    """Update a single matrix cell. Returns True if found and updated."""
+    tested_by: str = "",
+) -> bool | str:
+    """Update a single matrix cell.
+
+    Returns True if updated, False if cell not found, or a warning string
+    if the update was applied but violated an integrity rule.
+    """
     valid = {"pending", "in_progress", "tested_clean", "vulnerable", "not_applicable", "skipped"}
     if status not in valid:
         return False
+
+    warning = ""
+
     async with _lock:
         data = _load()
         for cell in data["matrix"]:
             if cell["id"] == cell_id:
+                prev_status = cell["status"]
+                inj_type = cell.get("injection_type", "")
+
+                # --- Integrity rule 1: require in_progress before final status ---
+                final_statuses = {"tested_clean", "vulnerable"}
+                if status in final_statuses and prev_status not in ("in_progress", "tested_clean", "vulnerable"):
+                    warning = (
+                        f"INTEGRITY WARNING: cell {cell_id} went {prev_status} -> {status} "
+                        f"without passing through in_progress first. "
+                        f"This usually means the cell was bulk-marked without actually being tested. "
+                        f"Mark the cell in_progress BEFORE running your test tool."
+                    )
+
+                # --- Integrity rule 2: N/A on bypass-required types needs justification ---
+                if status == "not_applicable" and inj_type in _BYPASS_REQUIRED_TYPES:
+                    bypass_technique = _BYPASS_REQUIRED_TYPES[inj_type]
+                    # Check if notes mention the bypass technique (loosely)
+                    notes_lower = notes.lower()
+                    bypass_keywords = bypass_technique.lower().split(", ")
+                    has_justification = any(kw in notes_lower for kw in bypass_keywords)
+                    if not has_justification and len(notes) < 40:
+                        warning = (
+                            f"INTEGRITY WARNING: marking {inj_type} as N/A without explaining "
+                            f"why bypass techniques don't apply. For {inj_type}, you should test: "
+                            f"{bypass_technique}. Add this to your notes or actually test before "
+                            f"marking N/A."
+                        )
+
+                # --- Apply the update (always apply, but return warning) ---
                 cell["status"] = status
                 cell["notes"] = notes
+                cell["tested_by"] = tested_by
                 if finding_id:
                     cell["finding_id"] = finding_id
                 cell["tested_at"] = datetime.now(timezone.utc).isoformat()
                 _recount(data)
                 _save(data)
-                return True
+                return warning if warning else True
     return False
 
 
-async def bulk_update(updates: list[dict]) -> int:
-    """Update multiple cells. Each update: {cell_id, status, notes?, finding_id?}.
+async def bulk_update(updates: list[dict]) -> dict:
+    """Update multiple cells. Each update: {cell_id, status, notes?, finding_id?, tested_by?}.
 
-    Returns count of successfully updated cells.
+    Returns {"updated": N, "warnings": [str]} — warnings for integrity violations.
     """
     valid = {"pending", "in_progress", "tested_clean", "vulnerable", "not_applicable", "skipped"}
+    final_statuses = {"tested_clean", "vulnerable"}
+
     async with _lock:
         data = _load()
         cell_map = {c["id"]: c for c in data["matrix"]}
         count = 0
+        warnings = []
         for upd in updates:
             cid = upd.get("cell_id", "")
             st = upd.get("status", "")
             if st not in valid or cid not in cell_map:
                 continue
             cell = cell_map[cid]
+            prev_status = cell["status"]
+            inj_type = cell.get("injection_type", "")
+            notes_text = upd.get("notes", "")
+
+            # Integrity rule 1: require in_progress before final status
+            if st in final_statuses and prev_status not in ("in_progress", "tested_clean", "vulnerable"):
+                warnings.append(
+                    f"{cid} ({inj_type}): {prev_status} -> {st} without in_progress first"
+                )
+
+            # Integrity rule 2: N/A on bypass-required types needs justification
+            if st == "not_applicable" and inj_type in _BYPASS_REQUIRED_TYPES:
+                bypass_technique = _BYPASS_REQUIRED_TYPES[inj_type]
+                notes_lower = notes_text.lower()
+                bypass_keywords = bypass_technique.lower().split(", ")
+                has_justification = any(kw in notes_lower for kw in bypass_keywords)
+                if not has_justification and len(notes_text) < 40:
+                    warnings.append(
+                        f"{cid} ({inj_type}): marked N/A without testing bypass ({bypass_technique})"
+                    )
+
             cell["status"] = st
-            cell["notes"] = upd.get("notes", "")
+            cell["notes"] = notes_text
+            cell["tested_by"] = upd.get("tested_by", "")
             if upd.get("finding_id"):
                 cell["finding_id"] = upd["finding_id"]
             cell["tested_at"] = datetime.now(timezone.utc).isoformat()
             count += 1
         _recount(data)
         _save(data)
-    return count
+    return {"updated": count, "warnings": warnings}
 
 
 def get_matrix() -> dict:

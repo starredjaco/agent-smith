@@ -99,9 +99,12 @@ mkdir -p "$HOME/.claude/skills/reverse-shell"
 cp "$REPO_DIR/skills/reverse-shell/SKILL.md" "$HOME/.claude/skills/reverse-shell/SKILL.md"
 ok "/reverse-shell skill installed"
 
-mkdir -p "$HOME/.claude/skills/web-exploit"
+mkdir -p "$HOME/.claude/skills/web-exploit/refs"
 cp "$REPO_DIR/skills/web-exploit/SKILL.md" "$HOME/.claude/skills/web-exploit/SKILL.md"
-ok "/web-exploit skill installed"
+if [ -d "$REPO_DIR/skills/web-exploit/refs" ]; then
+    cp "$REPO_DIR/skills/web-exploit/refs/"*.md "$HOME/.claude/skills/web-exploit/refs/"
+fi
+ok "/web-exploit skill installed (with lazy-loaded injection refs)"
 
 mkdir -p "$HOME/.claude/skills/codebase"
 cp "$REPO_DIR/skills/codebase/SKILL.md" "$HOME/.claude/skills/codebase/SKILL.md"
