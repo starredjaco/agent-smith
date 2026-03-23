@@ -53,11 +53,19 @@ def _read_json(path: Path) -> dict:
         return {}
 
 
+_svg_cache: dict[str, dict[str, str]] = {}  # content_hash -> svgs dict
+
 def _render_mermaid_svgs(content: str) -> dict[str, str]:
-    """Extract mermaid blocks from markdown and render each to SVG via mmdc."""
+    """Extract mermaid blocks from markdown and render each to SVG via mmdc.
+    Results are cached by content hash to avoid blocking on every poll."""
+    import hashlib
     import re
     import subprocess
     import tempfile
+
+    content_hash = hashlib.md5(content.encode()).hexdigest()
+    if content_hash in _svg_cache:
+        return _svg_cache[content_hash]
 
     blocks = re.findall(r'```mermaid\n(.*?)```', content, re.DOTALL)
     svgs: dict[str, str] = {}
@@ -82,6 +90,8 @@ def _render_mermaid_svgs(content: str) -> dict[str, str]:
             os.unlink(inp)
         except Exception:
             pass
+
+    _svg_cache[content_hash] = svgs
     return svgs
 
 
