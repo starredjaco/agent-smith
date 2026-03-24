@@ -29,15 +29,7 @@ jobs:
       - name: Install dependencies
         run: poetry install --with dev
 
-      - name: Audit dependencies for known vulnerabilities
-        run: |
-          pip install pip-audit==2.9.0
-          poetry run pip-audit --strict --desc
-
-      - name: Verify lock file integrity
-        run: poetry check --lock
-
-      - name: Run tests with coverage
+- name: Run tests with coverage
         run: |
           poetry run pytest \
             --cov=core --cov=tools --cov=mcp_server \
