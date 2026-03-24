@@ -29,7 +29,7 @@ jobs:
       - name: Install dependencies
         run: poetry install --with dev
 
-- name: Run tests with coverage
+      - name: Run tests with coverage
         run: |
           poetry run pytest \
             --cov=core --cov=tools --cov=mcp_server \
