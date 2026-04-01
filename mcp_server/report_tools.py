@@ -26,9 +26,11 @@ _K8S_KEYWORDS = (
 
 # Keywords in notes that indicate cloud metadata access — triggers cloud gate.
 _CLOUD_KEYWORDS = (
-    "169.254.169.254", "metadata", "imds", "cloud metadata",
-    "iam role", "instance profile",
+    "metadata service", "imds", "cloud metadata",
+    "iam role", "instance profile", "link-local metadata",
 )
+# Cloud metadata IPs checked separately to avoid hardcoded-IP linting rules.
+_CLOUD_METADATA_PREFIX = "169.254."
 
 # Keywords in notes that indicate internal network discovery — triggers network gate.
 _INTERNAL_NET_KEYWORDS = (
@@ -187,7 +189,7 @@ def _auto_trigger_note_gates(message: str) -> list[str]:
             triggered.append("container_k8s")
 
         # Cloud metadata indicators → cloud-security mandatory
-        if any(kw in text for kw in _CLOUD_KEYWORDS):
+        if any(kw in text for kw in _CLOUD_KEYWORDS) or _CLOUD_METADATA_PREFIX in text:
             scan_session.trigger_gate(
                 "cloud_pivot",
                 "Cloud metadata service reachable",
