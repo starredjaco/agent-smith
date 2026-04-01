@@ -211,7 +211,7 @@ def _auto_trigger_note_gates(message: str) -> list[str]:
         if depth in ("standard", "thorough"):
             scan_session.trigger_gate(
                 "credential_audit",
-                f"Auth service detected in recon",
+                "Auth service detected in recon",
                 ["credential-audit"],
             )
             triggered.append("credential_audit")

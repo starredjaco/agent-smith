@@ -205,37 +205,44 @@ def _suspect_na_cells(cells: list[dict], bypass_types: dict) -> list[str]:
     return suspect
 
 
-async def _do_complete(opts):
-    notes = opts.get("notes", "")
+def _gate_blockers() -> list[str]:
+    """Return completion blockers for unsatisfied gates."""
     blockers: list[str] = []
-
-    data = findings_store._load()
-
-    # ── Gate enforcement ─────────────────────────────────────────────────────
-    # Gates are triggered by events (RCE confirmed, auth service detected, etc.)
-    # and make certain skills mandatory before completion.
-    unsatisfied = scan_session.pending_gates()
-    for gate in unsatisfied:
+    for gate in scan_session.pending_gates():
         missing = sorted(set(gate["required_skills"]) - set(gate.get("satisfied_skills", [])))
         blockers.append(
             f"GATE [{gate['id']}]: {gate['trigger']} — "
             f"required skill(s) not yet invoked: {', '.join(missing)}. "
             f"Chain into these skills before completing."
         )
+    return blockers
 
-    # ── Pending escalation leads ─────────────────────────────────────────────
+
+def _escalation_lead_blockers(data: dict) -> list[str]:
+    """Return completion blockers for pending escalation leads."""
     pending_leads: list[str] = []
     for f in data.get("findings", []):
         for lead in f.get("escalation_leads", []):
             if lead.get("status") == "pending":
                 pending_leads.append(f"{f['title']}: {lead['lead']}")
-    if pending_leads:
-        sample = "; ".join(pending_leads[:5])
-        more = f" (and {len(pending_leads) - 5} more)" if len(pending_leads) > 5 else ""
-        blockers.append(
-            f"PENDING LEADS: {len(pending_leads)} escalation lead(s) not followed up{more}. "
-            f"Investigate or dismiss each before completing: {sample}"
-        )
+    if not pending_leads:
+        return []
+    sample = "; ".join(pending_leads[:5])
+    more = f" (and {len(pending_leads) - 5} more)" if len(pending_leads) > 5 else ""
+    return [
+        f"PENDING LEADS: {len(pending_leads)} escalation lead(s) not followed up{more}. "
+        f"Investigate or dismiss each before completing: {sample}"
+    ]
+
+
+async def _do_complete(opts):
+    notes = opts.get("notes", "")
+    blockers: list[str] = []
+
+    data = findings_store._load()
+
+    blockers.extend(_gate_blockers())
+    blockers.extend(_escalation_lead_blockers(data))
 
     # ── Existing checks ──────────────────────────────────────────────────────
 
