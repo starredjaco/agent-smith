@@ -205,11 +205,46 @@ def _suspect_na_cells(cells: list[dict], bypass_types: dict) -> list[str]:
     return suspect
 
 
+def _gate_blockers() -> list[str]:
+    """Return completion blockers for unsatisfied gates."""
+    blockers: list[str] = []
+    for gate in scan_session.pending_gates():
+        missing = sorted(set(gate["required_skills"]) - set(gate.get("satisfied_skills", [])))
+        blockers.append(
+            f"GATE [{gate['id']}]: {gate['trigger']} — "
+            f"required skill(s) not yet invoked: {', '.join(missing)}. "
+            f"Chain into these skills before completing."
+        )
+    return blockers
+
+
+def _escalation_lead_blockers(data: dict) -> list[str]:
+    """Return completion blockers for pending escalation leads."""
+    pending_leads: list[str] = []
+    for f in data.get("findings", []):
+        for lead in f.get("escalation_leads", []):
+            if lead.get("status") == "pending":
+                pending_leads.append(f"{f['title']}: {lead['lead']}")
+    if not pending_leads:
+        return []
+    sample = "; ".join(pending_leads[:5])
+    more = f" (and {len(pending_leads) - 5} more)" if len(pending_leads) > 5 else ""
+    return [
+        f"PENDING LEADS: {len(pending_leads)} escalation lead(s) not followed up{more}. "
+        f"Investigate or dismiss each before completing: {sample}"
+    ]
+
+
 async def _do_complete(opts):
     notes = opts.get("notes", "")
     blockers: list[str] = []
 
     data = findings_store._load()
+
+    blockers.extend(_gate_blockers())
+    blockers.extend(_escalation_lead_blockers(data))
+
+    # ── Existing checks ──────────────────────────────────────────────────────
 
     if not data.get("diagrams"):
         blockers.append(
@@ -287,6 +322,18 @@ def _do_status():
             "time_min": remaining.get("time_remaining_minutes", 0),
             "calls": remaining.get("calls_remaining", -1),
         }
+    # Pending gates
+    unsatisfied = scan_session.pending_gates()
+    if unsatisfied:
+        result["pending_gates"] = [
+            {
+                "gate_id": g["id"],
+                "trigger": g["trigger"],
+                "missing_skills": sorted(set(g["required_skills"]) - set(g.get("satisfied_skills", []))),
+            }
+            for g in unsatisfied
+        ]
+
     if current.get("skill") and current.get("status") == "running":
         step = current.get("current_step", "")
         step_msg = f" Resume at step: {step}." if step else ""
@@ -402,6 +449,16 @@ def _do_recovery():
     resume_step = _determine_resume_step(current, tools_run)
     integrity_warnings = _check_coverage_integrity(cov.get("matrix", []), tools_run)
 
+    # Pending gates
+    unsatisfied_gates = [
+        {
+            "gate_id": g["id"],
+            "trigger": g["trigger"],
+            "missing_skills": sorted(set(g["required_skills"]) - set(g.get("satisfied_skills", []))),
+        }
+        for g in scan_session.pending_gates()
+    ]
+
     result = {
         "target": current.get("target", ""),
         "depth": current.get("depth", ""),
@@ -411,13 +468,15 @@ def _do_recovery():
         "findings_count": len(data.get("findings", [])),
         "cost_usd": summary.get("est_cost_usd", 0),
         "remaining": remaining,
+        "pending_gates": unsatisfied_gates,
         "coverage_in_progress": in_progress_cells,
         "coverage_pending_cells": pending_count,
         "coverage_tested": meta.get("tested", 0),
         "pending_escalations": pending_escalations,
         "integrity_warnings": integrity_warnings,
         "action_required": _build_action_list(
-            integrity_warnings, in_progress_cells, pending_escalations, resume_step
+            integrity_warnings, in_progress_cells, pending_escalations,
+            resume_step, unsatisfied_gates,
         ),
     }
 
@@ -429,9 +488,18 @@ def _build_action_list(
     in_progress_cells: list[dict],
     pending_escalations: list[dict],
     resume_step: str,
+    unsatisfied_gates: list[dict] | None = None,
 ) -> list[str]:
     """Build prioritized action list for recovery."""
     actions: list[str] = []
+
+    # Gates are highest priority — they block completion
+    for gate in (unsatisfied_gates or []):
+        actions.append(
+            f"GATE BLOCKED [{gate['gate_id']}]: chain into {', '.join(gate['missing_skills'])} "
+            f"— {gate['trigger']}"
+        )
+
     if integrity_warnings:
         actions.append(
             f"FIX {len(integrity_warnings)} INTEGRITY WARNING(S): cells marked tested/clean "
@@ -511,8 +579,19 @@ def _do_set_skill(opts):
     result = scan_session.set_skill(skill_name)
     if result is None:
         return "No active running session — cannot set skill."
-    log.note(f"Active skill changed to: {skill_name}")
-    return f"Active skill set to: {skill_name}"
+
+    # Auto-satisfy any gates that require this skill
+    satisfied_gates: list[str] = []
+    for gate in result.get("gates", []):
+        if gate["status"] == "pending" and skill_name in gate["required_skills"]:
+            scan_session.satisfy_gate(gate["id"], skill_name)
+            satisfied_gates.append(gate["id"])
+
+    msg = f"Active skill set to: {skill_name}"
+    if satisfied_gates:
+        msg += f" (satisfied gate(s): {', '.join(satisfied_gates)})"
+    log.note(msg)
+    return msg
 
 
 def _do_set_step(opts):
