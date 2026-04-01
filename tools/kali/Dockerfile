@@ -178,11 +178,13 @@ RUN ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/') \
     && LIGOLO_VERSION=0.8.2 \
     && curl -fsSL "https://github.com/nicocha30/ligolo-ng/releases/download/v${LIGOLO_VERSION}/ligolo-ng_proxy_${LIGOLO_VERSION}_linux_${ARCH}.tar.gz" \
         -o /tmp/ligolo-proxy.tar.gz \
-    && tar xzf /tmp/ligolo-proxy.tar.gz -C /usr/local/bin/ ligolo-proxy \
+    && tar xzf /tmp/ligolo-proxy.tar.gz -C /tmp/ proxy \
+    && mv /tmp/proxy /usr/local/bin/ligolo-proxy \
     && chmod +x /usr/local/bin/ligolo-proxy \
     && curl -fsSL "https://github.com/nicocha30/ligolo-ng/releases/download/v${LIGOLO_VERSION}/ligolo-ng_agent_${LIGOLO_VERSION}_linux_${ARCH}.tar.gz" \
         -o /tmp/ligolo-agent.tar.gz \
-    && tar xzf /tmp/ligolo-agent.tar.gz -C /usr/local/bin/ ligolo-agent \
+    && tar xzf /tmp/ligolo-agent.tar.gz -C /tmp/ agent \
+    && mv /tmp/agent /usr/local/bin/ligolo-agent \
     && chmod +x /usr/local/bin/ligolo-agent \
     && rm -f /tmp/ligolo-proxy.tar.gz /tmp/ligolo-agent.tar.gz
 
