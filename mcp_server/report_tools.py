@@ -51,12 +51,20 @@ _AUTH_KEYWORDS = (
 async def report(action: str, data: Any) -> str:
     """Log findings, diagrams, notes, or coverage matrix updates.
 
-    action : finding | diagram | note | dashboard | coverage
+    action : finding | update_finding | delete_finding | diagram | note | dashboard | coverage
 
     finding data:
       title, severity (critical|high|medium|low|info), target,
       description, evidence, tool_used=, cve=,
       reproduction= {type: http|command|script|manual, command: "...", expected: "..."}
+
+    update_finding data:
+      id (required), plus any fields to update:
+      severity, title, description, evidence, status (confirmed|false_positive|draft),
+      gh_issue, remediation, reproduction, escalation_leads
+
+    delete_finding data:
+      id — moves the finding to the archived[] array (not permanently deleted)
 
     diagram data:
       title, mermaid (valid Mermaid source)
@@ -85,6 +93,10 @@ async def report(action: str, data: Any) -> str:
         data = json.loads(data)
     if action == "finding":
         return await _do_finding(data)
+    elif action == "update_finding":
+        return await _do_update_finding(data)
+    elif action == "delete_finding":
+        return await _do_delete_finding(data)
     elif action == "diagram":
         return await _do_diagram(data)
     elif action == "note":
@@ -94,7 +106,7 @@ async def report(action: str, data: Any) -> str:
     elif action == "coverage":
         return await _do_coverage(data)
     else:
-        return f"Unknown action '{action}'. Use: finding, diagram, note, dashboard, coverage"
+        return f"Unknown action '{action}'. Use: finding, update_finding, delete_finding, diagram, note, dashboard, coverage"
 
 
 async def _do_finding(data):
@@ -149,6 +161,29 @@ def _auto_trigger_finding_gates(title: str, severity: str, description: str) -> 
             triggered.append("credential_audit")
 
     return triggered
+
+
+async def _do_update_finding(data):
+    finding_id = data.get("id", "")
+    if not finding_id:
+        return "Missing required field: id"
+    fields = {k: v for k, v in data.items() if k != "id"}
+    if not fields:
+        return "No fields to update. Provide severity, title, description, evidence, status, etc."
+    updated = await findings_store.update_finding(finding_id, **fields)
+    if updated:
+        return f"Finding updated: {finding_id} — fields: {', '.join(fields.keys())}"
+    return f"Finding not found: {finding_id}"
+
+
+async def _do_delete_finding(data):
+    finding_id = data.get("id", "")
+    if not finding_id:
+        return "Missing required field: id"
+    archived = await findings_store.delete_finding(finding_id)
+    if archived:
+        return f"Finding archived: {finding_id} — moved to archived[] in findings.json"
+    return f"Finding not found: {finding_id}"
 
 
 async def _do_diagram(data):
