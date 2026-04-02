@@ -291,6 +291,58 @@ def test_api_patch_finding_invalid_json():
     response = client.patch("/api/findings/abc123", content=b"not json", headers={"content-type": "application/json"})
     assert response.status_code == 400
 
+def test_api_patch_finding_severity(monkeypatch):
+    from core import findings as findings_mod
+    monkeypatch.setattr(findings_mod, "update_finding", AsyncMock(return_value=True))
+    response = client.patch("/api/findings/abc123", json={"severity": "critical"})
+    assert response.status_code == 200
+    assert response.json()["ok"] is True
+
+def test_api_patch_finding_status(monkeypatch):
+    from core import findings as findings_mod
+    monkeypatch.setattr(findings_mod, "update_finding", AsyncMock(return_value=True))
+    response = client.patch("/api/findings/abc123", json={"status": "false_positive"})
+    assert response.status_code == 200
+    assert response.json()["ok"] is True
+
+def test_api_patch_finding_multiple_fields(monkeypatch):
+    from core import findings as findings_mod
+    mock = AsyncMock(return_value=True)
+    monkeypatch.setattr(findings_mod, "update_finding", mock)
+    response = client.patch("/api/findings/abc123", json={
+        "severity": "high", "title": "Updated", "status": "confirmed"
+    })
+    assert response.status_code == 200
+    mock.assert_awaited_once()
+    _, kwargs = mock.call_args
+    assert kwargs["severity"] == "high"
+    assert kwargs["title"] == "Updated"
+    assert kwargs["status"] == "confirmed"
+
+
+# ── DELETE /api/findings/{id} ────────────────────────────────────────────────
+
+def test_api_delete_finding_success(monkeypatch):
+    from core import findings as findings_mod
+    monkeypatch.setattr(findings_mod, "delete_finding", AsyncMock(return_value=True))
+    response = client.delete("/api/findings/abc123")
+    assert response.status_code == 200
+    assert response.json()["ok"] is True
+
+def test_api_delete_finding_not_found(monkeypatch):
+    from core import findings as findings_mod
+    monkeypatch.setattr(findings_mod, "delete_finding", AsyncMock(return_value=False))
+    response = client.delete("/api/findings/nonexistent")
+    assert response.status_code == 200
+    assert response.json()["ok"] is False
+
+def test_api_delete_finding_error(monkeypatch):
+    from core import findings as findings_mod
+    monkeypatch.setattr(findings_mod, "delete_finding", AsyncMock(side_effect=Exception("db error")))
+    response = client.delete("/api/findings/abc123")
+    assert response.status_code == 400
+    assert "db error" in response.json()["error"]
+
 
 def test_api_clear_resets_findings(tmp_path, monkeypatch):
     from core import findings as findings_mod
