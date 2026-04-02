@@ -201,3 +201,132 @@ async def test_add_finding_without_escalation_leads(findings_file):
         description="d", evidence="e",
     )
     assert "escalation_leads" not in entry
+
+
+# ---------------------------------------------------------------------------
+# update_finding — new fields (severity, title, description, evidence, status)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_update_finding_severity(findings_file):
+    entry = await core.findings.add_finding(
+        title="T", severity="low", target="t", description="d", evidence="e"
+    )
+    ok = await core.findings.update_finding(entry["id"], severity="critical")
+    assert ok
+    data = json.loads(findings_file.read_text())
+    assert data["findings"][0]["severity"] == "critical"
+
+
+@pytest.mark.asyncio
+async def test_update_finding_title(findings_file):
+    entry = await core.findings.add_finding(
+        title="Old", severity="low", target="t", description="d", evidence="e"
+    )
+    ok = await core.findings.update_finding(entry["id"], title="New Title")
+    assert ok
+    data = json.loads(findings_file.read_text())
+    assert data["findings"][0]["title"] == "New Title"
+
+
+@pytest.mark.asyncio
+async def test_update_finding_description(findings_file):
+    entry = await core.findings.add_finding(
+        title="T", severity="low", target="t", description="old", evidence="e"
+    )
+    ok = await core.findings.update_finding(entry["id"], description="new desc")
+    assert ok
+    data = json.loads(findings_file.read_text())
+    assert data["findings"][0]["description"] == "new desc"
+
+
+@pytest.mark.asyncio
+async def test_update_finding_evidence(findings_file):
+    entry = await core.findings.add_finding(
+        title="T", severity="low", target="t", description="d", evidence="old"
+    )
+    ok = await core.findings.update_finding(entry["id"], evidence="new evidence")
+    assert ok
+    data = json.loads(findings_file.read_text())
+    assert data["findings"][0]["evidence"] == "new evidence"
+
+
+@pytest.mark.asyncio
+async def test_update_finding_status(findings_file):
+    entry = await core.findings.add_finding(
+        title="T", severity="low", target="t", description="d", evidence="e"
+    )
+    ok = await core.findings.update_finding(entry["id"], status="false_positive")
+    assert ok
+    data = json.loads(findings_file.read_text())
+    assert data["findings"][0]["status"] == "false_positive"
+
+
+@pytest.mark.asyncio
+async def test_update_finding_multiple_fields(findings_file):
+    entry = await core.findings.add_finding(
+        title="T", severity="low", target="t", description="d", evidence="e"
+    )
+    ok = await core.findings.update_finding(
+        entry["id"], severity="high", status="confirmed", title="Updated"
+    )
+    assert ok
+    data = json.loads(findings_file.read_text())
+    f = data["findings"][0]
+    assert f["severity"] == "high"
+    assert f["status"] == "confirmed"
+    assert f["title"] == "Updated"
+
+
+# ---------------------------------------------------------------------------
+# delete_finding — archive
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_delete_finding_moves_to_archived(findings_file):
+    entry = await core.findings.add_finding(
+        title="FP", severity="low", target="t", description="d", evidence="e"
+    )
+    ok = await core.findings.delete_finding(entry["id"])
+    assert ok
+    data = json.loads(findings_file.read_text())
+    assert len(data["findings"]) == 0
+    assert len(data["archived"]) == 1
+    assert data["archived"][0]["id"] == entry["id"]
+    assert "archived_at" in data["archived"][0]
+
+
+@pytest.mark.asyncio
+async def test_delete_finding_returns_false_for_missing_id(findings_file):
+    ok = await core.findings.delete_finding("nonexistent-uuid")
+    assert ok is False
+
+
+@pytest.mark.asyncio
+async def test_delete_finding_preserves_other_findings(findings_file):
+    e1 = await core.findings.add_finding(
+        title="Keep", severity="high", target="t", description="d", evidence="e"
+    )
+    e2 = await core.findings.add_finding(
+        title="Remove", severity="low", target="t", description="d", evidence="e"
+    )
+    await core.findings.delete_finding(e2["id"])
+    data = json.loads(findings_file.read_text())
+    assert len(data["findings"]) == 1
+    assert data["findings"][0]["id"] == e1["id"]
+
+
+@pytest.mark.asyncio
+async def test_delete_finding_creates_archived_key_if_missing(findings_file):
+    """archived[] key should be created on first delete even if not in file."""
+    entry = await core.findings.add_finding(
+        title="T", severity="low", target="t", description="d", evidence="e"
+    )
+    # Verify no archived key yet
+    data = json.loads(findings_file.read_text())
+    assert "archived" not in data
+    # Delete should create it
+    await core.findings.delete_finding(entry["id"])
+    data = json.loads(findings_file.read_text())
+    assert "archived" in data
+    assert len(data["archived"]) == 1

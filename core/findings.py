@@ -9,11 +9,17 @@ Schema
   "meta":     { "created": "<ISO>", "target": "" },
   "findings": [ { id, timestamp, title, severity, target,
                    description, evidence, tool_used, cve,
-                   reproduction?, gh_issue?, remediation? } ],
-  "diagrams": [ { id, timestamp, title, mermaid } ]
+                   status?, reproduction?, gh_issue?, remediation? } ],
+  "diagrams": [ { id, timestamp, title, mermaid } ],
+  "archived": [ ... same shape as findings, moved here on delete ... ]
 }
 
 Optional fields set via update_finding():
+  severity:         "critical" | "high" | "medium" | "low" | "info"
+  title:            updated title string
+  description:      updated description string
+  evidence:         updated evidence string
+  status:           "confirmed" | "false_positive" | "draft"
   reproduction:     { type, command, expected, verified }
   gh_issue:         "<markdown block>"
   remediation:      { summary, fix_type, diff, before, after, file, line,
@@ -94,13 +100,17 @@ async def add_finding(
     return entry
 
 
-_UPDATABLE_FIELDS = {"gh_issue", "remediation", "reproduction", "escalation_leads"}
+_UPDATABLE_FIELDS = {
+    "severity", "title", "description", "evidence", "status",
+    "gh_issue", "remediation", "reproduction", "escalation_leads",
+}
 
 
 async def update_finding(finding_id: str, **fields) -> bool:
     """Update fields on an existing finding by id.
 
-    Accepted fields: gh_issue, remediation, reproduction.
+    Accepted fields: severity, title, description, evidence, status,
+    gh_issue, remediation, reproduction, escalation_leads.
     Returns True if the finding was found and updated, False otherwise.
     """
     updates = {k: v for k, v in fields.items() if k in _UPDATABLE_FIELDS and v is not None}
@@ -111,6 +121,25 @@ async def update_finding(finding_id: str, **fields) -> bool:
         for entry in data["findings"]:
             if entry.get("id") == finding_id:
                 entry.update(updates)
+                _save(data)
+                return True
+    return False
+
+
+async def delete_finding(finding_id: str) -> bool:
+    """Move a finding from findings[] to archived[].
+
+    Returns True if the finding was found and archived, False otherwise.
+    """
+    async with _lock:
+        data = _load()
+        if "archived" not in data:
+            data["archived"] = []
+        for i, entry in enumerate(data["findings"]):
+            if entry.get("id") == finding_id:
+                entry["archived_at"] = datetime.now(timezone.utc).isoformat()
+                data["archived"].append(entry)
+                data["findings"].pop(i)
                 _save(data)
                 return True
     return False

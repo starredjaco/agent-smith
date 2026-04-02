@@ -194,11 +194,27 @@ async def api_patch_finding(finding_id: str, request: Request) -> JSONResponse:
         body = await request.json()
         updated = await update_finding(
             finding_id,
+            severity=body.get("severity"),
+            title=body.get("title"),
+            description=body.get("description"),
+            evidence=body.get("evidence"),
+            status=body.get("status"),
             gh_issue=body.get("gh_issue"),
             remediation=body.get("remediation"),
             reproduction=body.get("reproduction"),
+            escalation_leads=body.get("escalation_leads"),
         )
         return JSONResponse({"ok": updated})
+    except Exception as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+
+
+@app.delete("/api/findings/{finding_id}")
+async def api_delete_finding(finding_id: str) -> JSONResponse:
+    from core.findings import delete_finding
+    try:
+        archived = await delete_finding(finding_id)
+        return JSONResponse({"ok": archived})
     except Exception as exc:
         return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
 
