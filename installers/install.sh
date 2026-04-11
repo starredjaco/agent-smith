@@ -106,6 +106,14 @@ if [ -d "$REPO_DIR/skills/web-exploit/refs" ]; then
 fi
 ok "/web-exploit skill installed (with lazy-loaded injection refs)"
 
+mkdir -p "$HOME/.claude/skills/api-security"
+cp "$REPO_DIR/skills/api-security/SKILL.md" "$HOME/.claude/skills/api-security/SKILL.md"
+ok "/api-security skill installed"
+
+mkdir -p "$HOME/.claude/skills/colang-gen"
+cp "$REPO_DIR/skills/colang-gen/SKILL.md" "$HOME/.claude/skills/colang-gen/SKILL.md"
+ok "/colang-gen skill installed"
+
 mkdir -p "$HOME/.claude/skills/codebase"
 cp "$REPO_DIR/skills/codebase/SKILL.md" "$HOME/.claude/skills/codebase/SKILL.md"
 ok "/codebase skill installed"
@@ -288,10 +296,12 @@ echo "  Install complete!"
 echo ""
 echo "  Available commands:"
 echo "    /pentester scan https://target.com       — full pentest"
+echo "    /api-security https://api.example.com    — OWASP API Top 10 (BOLA, BFLA, mass assignment, ...)"
 echo "    /analyze-cve lodash 4.17.20 CVE-...      — CVE exploitability analysis"
 echo "    /threat-model                             — PASTA threat model"
 echo "    /aikido-triage findings.csv /path/to/app — triage Aikido CSV + HTML report"
 echo "    /ai-redteam https://ai-app.com/api/chat   — OWASP LLM Top 10 red-team assessment"
+echo "    /colang-gen                              — generate NeMo Guardrails Colang configs"
 echo "    /cloud-security my-aws-account provider=aws — cloud security posture assessment"
 echo "    /ad-assessment 10.0.0.1 domain=CORP.LOCAL  — Active Directory security audit"
 echo "    /email-security example.com              — email SPF/DKIM/DMARC audit"
