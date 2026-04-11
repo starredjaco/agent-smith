@@ -7,7 +7,7 @@ from tools.nmap import _build_args as nmap_args
 from tools.naabu import _build_args as naabu_args
 from tools.httpx import _build_args as httpx_args
 from tools.nuclei import _build_args as nuclei_args
-from tools.ffuf import _build_args as ffuf_args
+from mcp_server.scan_tools import _build_ffuf_cmd as ffuf_args
 from tools.subfinder import _build_args as subfinder_args
 from tools.fuzzyai import _build_args as fuzzyai_args
 
