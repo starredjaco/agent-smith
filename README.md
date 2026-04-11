@@ -75,24 +75,24 @@ The skills are inspiration. The LLM is the operator.
   <tr>
     <td width="50%">
       <p align="center"><strong><code>/pentester</code> — full autonomous engagement</strong></p>
-      <img src="docs/gifs/pentester-full-run.gif" alt="pentester running from recon through reporting" width="100%">
+      <img src="docs/gifs/pen-final.gif" alt="pentester running from recon through reporting" width="100%">
       <p><sub>Recon → fingerprint → exploit → loot → report. The agent decides every step.</sub></p>
     </td>
     <td width="50%">
       <p align="center"><strong><code>/codebase</code> — white-box ASVS review</strong></p>
-      <img src="docs/gifs/codebase-review.gif" alt="codebase skill performing an ASVS 5.0 review" width="100%">
+      <img src="docs/gifs/code-final.gif" alt="codebase skill performing an ASVS 5.0 review" width="100%">
       <p><sub>Source → routes → sinks → ASVS chapters → enriched context for every downstream skill.</sub></p>
     </td>
   </tr>
   <tr>
     <td width="50%">
       <p align="center"><strong><code>/ai-redteam</code> — OWASP LLM Top 10 + AITG</strong></p>
-      <img src="docs/gifs/ai-redteam.gif" alt="ai-redteam executing prompt injection and jailbreak chains" width="100%">
+      <img src="docs/gifs/ai-final.gif" alt="ai-redteam executing prompt injection and jailbreak chains" width="100%">
       <p><sub>Prompt injection, jailbreaks, model extraction, MCP runtime attacks, and post-access infra checks.</sub></p>
     </td>
     <td width="50%">
       <p align="center"><strong><code>/remediate</code> — auto-generated patches</strong></p>
-      <img src="docs/gifs/remediate-patches.gif" alt="remediate skill writing fixes for every confirmed finding" width="100%">
+      <img src="docs/gifs/fix-final.gif" alt="remediate skill writing fixes for every confirmed finding" width="100%">
       <p><sub>For every confirmed finding the agent writes a code or config patch and verifies it doesn't break the build.</sub></p>
     </td>
   </tr>
