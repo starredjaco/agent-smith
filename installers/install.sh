@@ -239,7 +239,6 @@ _SCANNER_IMAGES=(
     "projectdiscovery/naabu"
     "projectdiscovery/httpx"
     "projectdiscovery/nuclei"
-    "ghcr.io/ffuf/ffuf"
     "projectdiscovery/subfinder"
     "semgrep/semgrep"
     "trufflesecurity/trufflehog"
