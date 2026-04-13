@@ -42,6 +42,86 @@ def test_host_rewrite_empty_string():
 
 
 # ---------------------------------------------------------------------------
+# _force_bash (pure function — no mocking needed)
+# ---------------------------------------------------------------------------
+
+def test_force_bash_wraps_simple_command():
+    result = kr._force_bash("id")
+    assert result.startswith("bash -c ")
+    # shlex.quote wraps single-word args in single quotes only if necessary
+    assert "id" in result
+
+
+def test_force_bash_preserves_bashisms():
+    # `[[ ]]` is the canonical bashism dash does not support
+    cmd = '[[ "a" == "a" ]] && echo ok'
+    result = kr._force_bash(cmd)
+    assert result.startswith("bash -c ")
+    # The inner command survives intact once shell-unquoted
+    import shlex
+    tokens = shlex.split(result)
+    assert tokens[:2] == ["bash", "-c"]
+    assert tokens[2] == cmd
+
+
+def test_force_bash_preserves_single_quotes():
+    cmd = "echo 'hello world'"
+    result = kr._force_bash(cmd)
+    import shlex
+    tokens = shlex.split(result)
+    assert tokens[:2] == ["bash", "-c"]
+    assert tokens[2] == cmd
+
+
+def test_force_bash_preserves_double_quotes_and_vars():
+    cmd = 'echo "$HOME"'
+    result = kr._force_bash(cmd)
+    import shlex
+    tokens = shlex.split(result)
+    assert tokens[:2] == ["bash", "-c"]
+    assert tokens[2] == cmd
+
+
+def test_force_bash_preserves_pipes_and_redirects():
+    cmd = "ls -la | grep foo > /tmp/out.txt 2>&1"
+    result = kr._force_bash(cmd)
+    import shlex
+    tokens = shlex.split(result)
+    assert tokens[:2] == ["bash", "-c"]
+    assert tokens[2] == cmd
+
+
+def test_force_bash_preserves_backslashes():
+    cmd = r"grep -E 'foo\s+bar' /etc/passwd"
+    result = kr._force_bash(cmd)
+    import shlex
+    tokens = shlex.split(result)
+    assert tokens[:2] == ["bash", "-c"]
+    assert tokens[2] == cmd
+
+
+def test_force_bash_double_wrapping_is_idempotent_in_effect():
+    # Already-wrapped commands get double-wrapped, which is harmless —
+    # the outer bash invokes the inner bash with the same argument list.
+    cmd = "bash -c 'echo inner'"
+    result = kr._force_bash(cmd)
+    assert result.startswith("bash -c ")
+    import shlex
+    tokens = shlex.split(result)
+    assert tokens[:2] == ["bash", "-c"]
+    assert tokens[2] == cmd
+
+
+def test_force_bash_empty_string_unchanged():
+    # No point wrapping an empty command.
+    assert kr._force_bash("") == ""
+
+
+def test_force_bash_whitespace_only_unchanged():
+    assert kr._force_bash("   ") == "   "
+
+
+# ---------------------------------------------------------------------------
 # exec_command — mocked ensure_running + aiohttp
 # ---------------------------------------------------------------------------
 
@@ -142,3 +222,39 @@ async def test_exec_command_handles_aiohttp_exception():
          patch.object(aiohttp, "ClientSession", side_effect=Exception("conn refused")):
         result = await kr.exec_command("id")
     assert "Error" in result or "conn refused" in result
+
+
+@pytest.mark.asyncio
+async def test_exec_command_wraps_in_bash_c_before_sending():
+    """The posted command must start with `bash -c ` so bashisms survive
+    dash (/bin/sh on Kali) when kali-server-mcp executes it."""
+    resp = _mock_resp(stdout="ok")
+    session = _mock_session(resp)
+    import aiohttp
+    with patch.object(kr, "ensure_running", AsyncMock(return_value=(True, "running"))), \
+         patch.object(aiohttp, "ClientSession", return_value=session):
+        await kr.exec_command('[[ "a" == "a" ]] && echo ok')
+    posted_json = session.post.call_args[1]["json"]
+    assert posted_json["command"].startswith("bash -c ")
+    # The inner (bashism) command must be fully preserved
+    import shlex
+    tokens = shlex.split(posted_json["command"])
+    assert tokens[:2] == ["bash", "-c"]
+    assert tokens[2] == '[[ "a" == "a" ]] && echo ok'
+
+
+@pytest.mark.asyncio
+async def test_exec_command_bash_wrap_composes_with_host_rewrite():
+    """Host rewrite runs before bash wrap, so the final posted command
+    contains host.docker.internal (not localhost) inside the bash -c."""
+    resp = _mock_resp(stdout="ok")
+    session = _mock_session(resp)
+    import aiohttp
+    with patch.object(kr, "ensure_running", AsyncMock(return_value=(True, "running"))), \
+         patch.object(aiohttp, "ClientSession", return_value=session):
+        await kr.exec_command("curl http://localhost:3000")
+    posted_json = session.post.call_args[1]["json"]
+    posted = posted_json["command"]
+    assert posted.startswith("bash -c ")
+    assert "localhost" not in posted
+    assert "host.docker.internal" in posted
