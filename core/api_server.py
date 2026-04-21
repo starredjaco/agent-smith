@@ -130,6 +130,11 @@ async def dashboard_ui() -> FileResponse:
     return FileResponse(_TEMPLATES_DIR / "dashboard.html")
 
 
+@app.get("/logo.png")
+async def logo() -> FileResponse:
+    return FileResponse(_TEMPLATES_DIR / "FullLogo_Transparent.png", media_type="image/png")
+
+
 @app.get("/api/findings")
 async def api_findings() -> JSONResponse:
     data = _read_json(_FINDINGS_FILE)
